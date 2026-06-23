@@ -1,0 +1,1329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0A1230" />
+<title>DCL Exchange Helper — Cruise Exchanges</title>
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="DCL Exchanges" />
+<script type="module">
+  try{
+    const pdfjsLib = await import('./pdf.min.mjs');
+    pdfjsLib.GlobalWorkerOptions.workerSrc = './pdf.worker.min.mjs';
+    window.pdfjsLib = pdfjsLib;
+  }catch(e){ /* PDF support is optional; xlsx/csv still work */ }
+</script>
+<style>
+
+  :root{
+    --bg-0:#080F28; --bg-1:#0C1740; --bg-2:#101E52;
+    --card:rgba(26,39,86,.55); --card-solid:#14224C;
+    --line:rgba(126,146,214,.20); --line-strong:rgba(140,160,225,.35);
+    --ink:#EEF0FA; --muted:#9BA6D6; --faint:#6B77A8;
+    --gold:#F4CD6B; --gold-bright:#FFE19A; --gold-deep:#C99B3A;
+    --aqua:#74D8CB;
+    --alert:#FF93A4; --alert-bg:rgba(255,120,140,.10); --alert-line:rgba(255,120,140,.40);
+    --note-bg:rgba(116,216,203,.08); --note-line:rgba(116,216,203,.28);
+    --r:18px; --r-sm:11px;
+    --serif:ui-serif,"New York",Georgia,"Times New Roman",serif;
+    --sans:-apple-system,system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --shadow:0 18px 40px -22px rgba(0,0,0,.7);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:var(--sans); color:var(--ink); line-height:1.45;
+    background:
+      radial-gradient(120% 80% at 50% -10%, rgba(244,205,107,.10), transparent 55%),
+      radial-gradient(90% 70% at 90% 0%, rgba(116,216,203,.08), transparent 50%),
+      linear-gradient(180deg, var(--bg-1) 0%, var(--bg-0) 60%, #060B1E 100%);
+    background-attachment:fixed; min-height:100vh; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:880px;margin:0 auto;padding:0 14px env(safe-area-inset-bottom,18px)}
+
+  .topwrap{position:sticky;top:0;z-index:40;
+    background:linear-gradient(180deg, rgba(8,15,40,.93), rgba(8,15,40,.80) 70%, rgba(8,15,40,0));
+    backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); padding-top:env(safe-area-inset-top,8px);}
+  .topbar{max-width:880px;margin:0 auto;padding:12px 14px 8px;display:flex;align-items:center;gap:12px}
+  .brand{display:flex;align-items:center;gap:11px;min-width:0;flex:1}
+  .spark{flex:none;width:30px;height:30px;color:var(--gold);filter:drop-shadow(0 0 7px rgba(244,205,107,.5))}
+  .brand h1{font-family:var(--serif);font-weight:600;font-size:25px;letter-spacing:.4px;margin:0;line-height:1;color:var(--ink)}
+  .brand p{margin:3px 0 0;font-size:11.5px;letter-spacing:.6px;text-transform:uppercase;color:var(--faint)}
+  .prog-pill{flex:none;display:flex;align-items:center;gap:8px;padding:7px 12px;border-radius:999px;border:1px solid var(--line);background:rgba(20,34,76,.6)}
+  .ring{width:26px;height:26px;flex:none}
+  .ring-num{font-family:var(--mono);font-size:12.5px;font-weight:600;color:var(--gold-bright);white-space:nowrap}
+  .iconbtn{flex:none;width:38px;height:38px;display:grid;place-items:center;border-radius:11px;border:1px solid var(--line);background:rgba(20,34,76,.5);color:var(--muted);cursor:pointer}
+  .iconbtn:hover{color:var(--ink);border-color:var(--line-strong)}
+  .iconbtn svg{width:18px;height:18px}
+
+  .controls{max-width:880px;margin:0 auto;padding:2px 14px 12px;display:flex;flex-direction:column;gap:9px}
+  .search{position:relative}
+  .search svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);width:17px;height:17px;color:var(--faint)}
+  .search input{width:100%;padding:12px 40px 12px 40px;border-radius:13px;border:1px solid var(--line);background:rgba(12,22,56,.7);color:var(--ink);font-size:15px;font-family:var(--sans);outline:none}
+  .search input::placeholder{color:var(--faint)}
+  .search input:focus{border-color:var(--gold-deep);box-shadow:0 0 0 3px rgba(244,205,107,.14)}
+  .search .clearx{position:absolute;right:8px;top:50%;transform:translateY(-50%);width:28px;height:28px;border:0;background:none;color:var(--faint);cursor:pointer;display:none;border-radius:8px;font-size:17px}
+  .search .clearx:hover{color:var(--ink)}
+  .row2{display:flex;gap:9px;align-items:center}
+  .selwrap{position:relative;flex:none}
+  .selwrap svg{position:absolute;right:10px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--muted);pointer-events:none}
+  select.sort{appearance:none;-webkit-appearance:none;font-family:var(--sans);font-size:13.5px;font-weight:600;padding:9px 30px 9px 13px;border-radius:11px;border:1px solid var(--line);background:rgba(20,34,76,.6);color:var(--ink);cursor:pointer;outline:none}
+  select.sort:focus{border-color:var(--gold-deep)}
+  .chips{display:flex;gap:7px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:1px;flex:1}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{flex:none;display:inline-flex;align-items:center;gap:5px;padding:8px 12px;border-radius:999px;border:1px solid var(--line);background:rgba(20,34,76,.45);color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+  .chip svg{width:13px;height:13px}
+  .chip:hover{color:var(--ink);border-color:var(--line-strong)}
+  .chip[aria-pressed="true"]{color:#1a1505;background:linear-gradient(180deg,var(--gold-bright),var(--gold));border-color:var(--gold);box-shadow:0 4px 14px -6px rgba(244,205,107,.6)}
+  .chip.alertchip[aria-pressed="true"]{background:linear-gradient(180deg,#ffb0bd,var(--alert));border-color:var(--alert);color:#3a0a12}
+  .pbar{height:4px;border-radius:999px;background:rgba(255,255,255,.07);overflow:hidden}
+  .pbar i{display:block;height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,var(--gold-deep),var(--gold-bright));transition:width .5s cubic-bezier(.2,.8,.2,1)}
+
+  main{padding-top:8px}
+  .group{margin:18px 0 4px}
+  .group-h{display:flex;align-items:baseline;gap:10px;margin:0 4px 11px;font-family:var(--sans);font-size:12px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:var(--gold)}
+  .group-h::before{content:"";width:18px;height:1px;background:linear-gradient(90deg,var(--gold),transparent);align-self:center}
+  .group-n{color:var(--faint);letter-spacing:.5px;font-weight:600}
+  .grid{display:grid;grid-template-columns:1fr;gap:11px}
+  .card{position:relative;border:1px solid var(--line);border-radius:var(--r);background:var(--card);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);box-shadow:var(--shadow);overflow:hidden;transition:opacity .35s,filter .35s,border-color .25s,transform .12s}
+  .card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:transparent;transition:background .3s}
+  .card.done{opacity:.5;filter:saturate(.45)}
+  .card.done::before{background:linear-gradient(180deg,var(--gold-bright),var(--gold-deep))}
+  .card.flash{animation:flash .7s ease-out}
+  @keyframes flash{0%{box-shadow:0 0 0 1px var(--gold),0 0 30px 2px rgba(244,205,107,.55)}100%{box-shadow:var(--shadow)}}
+  .ribbon{display:flex;align-items:center;gap:8px;padding:8px 15px;background:linear-gradient(90deg,rgba(244,205,107,.16),rgba(244,205,107,.04));border-bottom:1px solid rgba(244,205,107,.18);color:var(--gold-bright);font-size:13px;font-weight:600;line-height:1.35}
+  .ribbon svg{flex:none;width:15px;height:15px;color:var(--gold)}
+  .cbody{padding:14px 15px 15px}
+  .chead{display:flex;align-items:flex-start;gap:12px}
+  .who{flex:1;min-width:0}
+  .lname{font-family:var(--serif);font-weight:600;font-size:21px;line-height:1.15;margin:0;color:var(--ink);word-break:break-word}
+  .meta{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-top:6px}
+  .room{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--gold-bright);background:rgba(244,205,107,.12);border:1px solid rgba(244,205,107,.25);padding:2px 8px;border-radius:7px;letter-spacing:.5px}
+  .deck{font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.3px}
+  .tag{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;letter-spacing:.4px;padding:2px 8px;border-radius:999px;text-transform:uppercase}
+  .tag.conf{color:var(--aqua);background:rgba(116,216,203,.12);border:1px solid rgba(116,216,203,.3)}
+  .tag.conf svg{width:11px;height:11px}
+  .done-tag{display:none;color:var(--gold-deep);background:rgba(244,205,107,.14);border:1px solid rgba(244,205,107,.3)}
+  .card.done .done-tag{display:inline-flex}
+  .check{flex:none;width:46px;height:46px;border-radius:50%;cursor:pointer;border:2px solid var(--line-strong);background:rgba(12,22,56,.5);display:grid;place-items:center;color:transparent;transition:.18s;-webkit-tap-highlight-color:transparent}
+  .check svg{width:22px;height:22px;transition:transform .2s}
+  .check:hover{border-color:var(--gold)}
+  .check[aria-pressed="true"]{background:radial-gradient(circle at 50% 35%,var(--gold-bright),var(--gold));border-color:var(--gold);color:#241a02;box-shadow:0 6px 18px -6px rgba(244,205,107,.7)}
+  .check[aria-pressed="true"] svg{transform:scale(1.05)}
+  .line{margin:9px 0 0;font-size:14px;color:#d6daf0}
+  .line .lbl,.loves .lbl{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--faint);margin-right:7px;vertical-align:1px}
+  .loves{margin:11px 0 0}
+  .loves-txt{font-size:14px;color:#cfd4ee;margin-top:4px}
+  .loves-txt.clamp{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  .more{margin-top:5px;border:0;background:none;color:var(--gold);font-size:12.5px;font-weight:700;cursor:pointer;padding:2px 0;letter-spacing:.3px}
+  .callout{margin:12px 0 0;display:flex;gap:9px;padding:10px 12px;border-radius:var(--r-sm);font-size:13.5px;line-height:1.4}
+  .callout svg{flex:none;width:16px;height:16px;margin-top:1px}
+  .callout.alert{background:var(--alert-bg);border:1px solid var(--alert-line);color:#ffd2d9}
+  .callout.alert svg{color:var(--alert)}
+  .callout.alert b{color:var(--alert);font-weight:700;text-transform:uppercase;font-size:11px;letter-spacing:.6px;display:block;margin-bottom:1px}
+  .callout.note{background:var(--note-bg);border:1px solid var(--note-line);color:#cde9e4}
+  .callout.note svg{color:var(--aqua)}
+
+  .empty{max-width:520px;margin:8vh auto 0;text-align:center;padding:22px}
+  .empty .bigspark{width:64px;height:64px;color:var(--gold);margin:0 auto 18px;filter:drop-shadow(0 0 18px rgba(244,205,107,.45))}
+  .empty h2{font-family:var(--serif);font-weight:600;font-size:27px;margin:0 0 10px}
+  .empty p{color:var(--muted);font-size:15px;margin:0 auto 22px;max-width:42ch}
+  .drop{border:1.5px dashed var(--line-strong);border-radius:20px;padding:26px 20px;background:rgba(20,34,76,.3);transition:.2s}
+  .drop.over{border-color:var(--gold);background:rgba(244,205,107,.07)}
+  .btn{display:inline-flex;align-items:center;gap:9px;font-family:var(--sans);font-size:15px;font-weight:700;padding:13px 22px;border-radius:13px;border:0;cursor:pointer;background:linear-gradient(180deg,var(--gold-bright),var(--gold));color:#231902;box-shadow:0 10px 26px -10px rgba(244,205,107,.6)}
+  .btn svg{width:18px;height:18px}
+  .btn:hover{filter:brightness(1.04)}
+  .drophint{margin-top:13px;font-size:12.5px;color:var(--faint)}
+  .privacy{margin-top:24px;font-size:12.5px;color:var(--faint);line-height:1.6}
+  .privacy b{color:var(--muted);font-weight:600}
+  .errbar{max-width:520px;margin:14px auto 0;padding:12px 15px;border-radius:13px;background:var(--alert-bg);border:1px solid var(--alert-line);color:#ffd2d9;font-size:13.5px;display:none;gap:9px;align-items:flex-start}
+  .errbar svg{flex:none;width:16px;height:16px;margin-top:1px;color:var(--alert)}
+  .warnbar{max-width:880px;margin:8px auto 0;padding:10px 14px;border-radius:12px;background:rgba(244,205,107,.10);border:1px solid rgba(244,205,107,.32);color:#f0dca6;font-size:12.5px;display:none;gap:9px;align-items:flex-start;line-height:1.45}
+  .warnbar.show{display:flex}
+  .warnbar svg{flex:none;width:15px;height:15px;margin-top:1px;color:var(--gold)}
+  .warnbar button{flex:none;margin-left:auto;border:0;background:none;color:var(--faint);font-size:16px;cursor:pointer;line-height:1;padding:0 2px}
+  .warnbar button:hover{color:var(--ink)}
+  .noresult{text-align:center;color:var(--muted);padding:40px 20px;font-size:15px}
+  .noresult span{display:block;color:var(--faint);font-size:13px;margin-top:6px}
+  .menu{position:absolute;right:14px;top:60px;z-index:60;min-width:212px;background:var(--card-solid);border:1px solid var(--line-strong);border-radius:14px;box-shadow:0 24px 50px -16px rgba(0,0,0,.8);padding:6px;display:none}
+  .menu.open{display:block}
+  .menu button{width:100%;text-align:left;display:flex;align-items:center;gap:11px;padding:11px 12px;border:0;border-radius:9px;background:none;color:var(--ink);font-family:var(--sans);font-size:14px;cursor:pointer}
+  .menu button:hover{background:rgba(255,255,255,.06)}
+  .menu button svg{width:16px;height:16px;color:var(--muted);flex:none}
+  .menu .danger{color:var(--alert)} .menu .danger svg{color:var(--alert)}
+  .menu hr{border:0;border-top:1px solid var(--line);margin:5px 4px}
+  .scrim{position:fixed;inset:0;z-index:50;display:none}
+  .scrim.open{display:block}
+  .loading{text-align:center;color:var(--muted);padding:60px 20px;font-size:15px}
+  .loading .dotspin{width:30px;height:30px;margin:0 auto 14px;border:3px solid rgba(244,205,107,.25);border-top-color:var(--gold);border-radius:50%;animation:spin 1s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .dust{position:fixed;width:7px;height:7px;border-radius:50%;background:radial-gradient(circle,var(--gold-bright),var(--gold));box-shadow:0 0 8px var(--gold);pointer-events:none;z-index:9999;transform:translate(-50%,-50%);animation:dust .72s ease-out forwards}
+  @keyframes dust{0%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(.25)}}
+  @media (min-width:760px){.grid{grid-template-columns:1fr 1fr;gap:13px}.brand h1{font-size:28px}}
+  @media (prefers-reduced-motion:reduce){*{animation-duration:.001ms!important;transition-duration:.001ms!important}}
+  :focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:6px}
+  .appfooter{max-width:880px;margin:32px auto 0;padding:18px 18px max(24px,env(safe-area-inset-bottom,24px));font-size:11.5px;color:var(--faint);line-height:1.6;display:flex;flex-wrap:wrap;align-items:center;gap:8px;border-top:1px solid var(--line)}
+  .beta-pill{flex:none;font-size:10.5px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;padding:2px 8px;border-radius:999px;background:rgba(244,205,107,.14);border:1px solid rgba(244,205,107,.35);color:var(--gold-bright)}
+  .ver{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+
+  /* ----- multi-exchange additions ----- */
+  .exrow{display:flex;gap:9px}
+  .exsel{flex:1;min-width:0}
+  .exsel select{width:100%}
+  select.sort.big{font-size:14.5px;padding:11px 32px 11px 14px;font-weight:700}
+  .gbadge{display:inline-flex;align-items:center;font-size:11px;font-weight:700;letter-spacing:.3px;padding:2px 8px;border-radius:999px;color:var(--aqua);background:rgba(116,216,203,.10);border:1px solid rgba(116,216,203,.28)}
+  .hsTip{max-width:880px;margin:10px auto 0;padding:12px 14px;border-radius:13px;background:rgba(116,216,203,.08);border:1px solid var(--note-line);color:#cde9e4;font-size:13px;display:flex;gap:10px;align-items:flex-start;line-height:1.5}
+  .hsTip.hide{display:none}
+  .hsTip svg{flex:none;width:17px;height:17px;margin-top:1px;color:var(--aqua)}
+  .hsTip b{color:var(--ink);font-weight:700}
+  .hsTip button{flex:none;margin-left:6px;border:0;background:none;color:var(--faint);font-size:16px;cursor:pointer;line-height:1;padding:0 2px}
+  .hsTip button:hover{color:var(--ink)}
+  .linklike{border:0;background:none;color:var(--gold);font-weight:700;cursor:pointer;font-size:13.5px;text-decoration:underline;text-underline-offset:3px;padding:6px}
+  .types{margin:18px auto 0;display:flex;flex-wrap:wrap;gap:7px;justify-content:center;max-width:430px}
+  .types span{font-size:12px;font-weight:600;color:var(--muted);background:rgba(20,34,76,.5);border:1px solid var(--line);border-radius:999px;padding:5px 11px}
+  /* instructions sheet */
+  .sheet{position:fixed;inset:0;z-index:80;display:none}
+  .sheet.open{display:block}
+  .sheetbg{position:absolute;inset:0;background:rgba(4,8,22,.72);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+  .panel{position:relative;max-width:640px;margin:0 auto;height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;background:linear-gradient(180deg,var(--bg-1),var(--bg-0) 70%);box-shadow:0 0 60px rgba(0,0,0,.5)}
+  .ph{position:sticky;top:0;display:flex;align-items:center;gap:10px;padding:16px 18px;padding-top:max(16px,env(safe-area-inset-top));background:rgba(8,15,40,.92);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line);z-index:2}
+  .ph .spark{width:22px;height:22px;color:var(--gold);flex:none}
+  .ph h2{font-family:var(--serif);font-size:21px;margin:0;flex:1;font-weight:600}
+  .ph button{flex:none;width:34px;height:34px;border-radius:9px;border:1px solid var(--line);background:rgba(20,34,76,.5);color:var(--muted);cursor:pointer;font-size:18px;line-height:1}
+  .ph button:hover{color:var(--ink)}
+  .pc{padding:6px 20px 60px}
+  .pc h3{font-family:var(--sans);font-size:12px;letter-spacing:1.2px;text-transform:uppercase;color:var(--gold);margin:24px 0 9px}
+  .pc p{color:#d2d8f0;font-size:14.5px;line-height:1.62;margin:8px 0}
+  .pc .step{display:flex;gap:12px;margin:11px 0;align-items:flex-start}
+  .pc .step .n{flex:none;width:25px;height:25px;border-radius:50%;background:rgba(244,205,107,.14);border:1px solid var(--gold-deep);color:var(--gold-bright);font-weight:700;font-size:13px;display:grid;place-items:center;margin-top:1px}
+  .pc .step div{flex:1;font-size:14.5px;color:#d2d8f0;line-height:1.55}
+  .pc .note2{margin:12px 0;padding:12px 14px;border-radius:12px;background:var(--note-bg);border:1px solid var(--note-line);color:#cde9e4;font-size:13.6px;line-height:1.55;display:flex;gap:10px}
+  .pc .note2.gold{background:rgba(244,205,107,.08);border-color:rgba(244,205,107,.3);color:#f0dca6}
+  .pc .note2 svg{flex:none;width:17px;height:17px;margin-top:1px}
+  .pc .kbd{font-family:var(--mono);font-size:12.5px;background:rgba(255,255,255,.08);border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:var(--ink);white-space:nowrap}
+  .pc b{color:var(--ink)}
+  .pc .ex-types{display:flex;flex-direction:column;gap:8px;margin:10px 0}
+  .pc .ex-types div{padding:11px 13px;border-radius:11px;border:1px solid var(--line);background:rgba(20,34,76,.4);font-size:13.8px;color:#d2d8f0}
+  .pc .ex-types b{color:var(--gold-bright)}
+
+  /* ----- google sheet link modal ----- */
+  .modal{position:fixed;inset:0;z-index:90;display:none;align-items:center;justify-content:center;padding:18px}
+  .modal.open{display:flex}
+  .modalbg{position:absolute;inset:0;background:rgba(4,8,22,.72);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+  .modalcard{position:relative;max-width:440px;width:100%;background:linear-gradient(180deg,var(--bg-1),var(--bg-0) 80%);border:1px solid var(--line-strong);border-radius:var(--r);box-shadow:0 24px 60px -16px rgba(0,0,0,.8);padding:20px}
+  .modalcard h2{font-family:var(--serif);font-size:20px;margin:0 0 6px;font-weight:600}
+  .modalcard p{color:#d2d8f0;font-size:13.5px;line-height:1.55;margin:0 0 14px}
+  .modalcard label{display:block;font-size:11.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--faint);margin:12px 0 6px}
+  .modalcard input{width:100%;padding:11px 13px;border-radius:11px;border:1px solid var(--line);background:rgba(12,22,56,.7);color:var(--ink);font-size:14.5px;font-family:var(--sans);outline:none}
+  .modalcard input:focus{border-color:var(--gold-deep);box-shadow:0 0 0 3px rgba(244,205,107,.14)}
+  .modalerr{margin-top:12px;padding:10px 12px;border-radius:11px;background:var(--alert-bg);border:1px solid var(--alert-line);color:#ffd2d9;font-size:13px;line-height:1.45}
+  .modalerr[hidden]{display:none}
+  .modalbtns{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
+  .modalbtns button{font-family:var(--sans);font-size:14px;font-weight:700;padding:11px 18px;border-radius:11px;border:1px solid var(--line);background:rgba(20,34,76,.5);color:var(--ink);cursor:pointer}
+  .modalbtns button:hover{border-color:var(--line-strong)}
+  .modalbtns .btn{border:0;padding:11px 20px}
+  .modalbtns .btn:disabled{opacity:.6;cursor:default}
+  .modalcard.tall{max-width:480px;max-height:88vh;display:flex;flex-direction:column}
+  .modalcard.tall p{flex:none}
+  /* ----- group picker ----- */
+  .gpx{overflow-y:auto;-webkit-overflow-scrolling:touch;margin:2px -4px;padding:0 4px;flex:1}
+  .gpx-ex{margin:0 0 16px}
+  .gpx-h{display:flex;align-items:baseline;gap:8px;font-size:11.5px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--gold);margin:0 2px 9px}
+  .gpx-all{margin:0 2px 8px}
+  .gpx-row{display:flex;align-items:center;gap:11px;padding:11px 13px;border-radius:11px;border:1px solid var(--line);background:rgba(20,34,76,.4);margin-bottom:7px;cursor:pointer;font-size:14.5px;color:var(--ink);user-select:none}
+  .gpx-row:hover{border-color:var(--line-strong)}
+  .gpx-row input{flex:none;width:20px;height:20px;margin:0;accent-color:var(--gold);cursor:pointer}
+  .gpx-row.all{background:rgba(244,205,107,.08);border-color:rgba(244,205,107,.3);font-weight:700}
+  .gpx-empty{color:var(--muted);font-size:13.5px;padding:8px 2px}
+</style>
+</head>
+<body>
+<div class="topwrap" id="topwrap" hidden>
+  <div class="topbar">
+    <div class="brand">
+      <svg class="spark" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 1.5c.4 4.6 2.4 6.6 7 7-4.6.4-6.6 2.4-7 7-.4-4.6-2.4-6.6-7-7 4.6-.4 6.6-2.4 7-7z"/><path d="M19 3c.16 1.7.9 2.44 2.6 2.6-1.7.16-2.44.9-2.6 2.6-.16-1.7-.9-2.44-2.6-2.6C17.1 5.44 17.84 4.7 19 3z" opacity=".8"/><path d="M5 14c.16 1.7.9 2.44 2.6 2.6C5.9 16.76 5.16 17.5 5 19.2c-.16-1.7-.9-2.44-2.6-2.6C4.1 16.44 4.84 15.7 5 14z" opacity=".7"/></svg>
+      <div><h1>DCL&nbsp;Exchanges</h1><p id="brandsub">Stateroom gift exchange helper</p></div>
+    </div>
+    <div class="prog-pill" id="progPill" title="Delivered so far">
+      <svg class="ring" viewBox="0 0 36 36" aria-hidden="true">
+        <circle cx="18" cy="18" r="15" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="4"/>
+        <circle id="ringFill" cx="18" cy="18" r="15" fill="none" stroke="var(--gold)" stroke-width="4" stroke-linecap="round" stroke-dasharray="94.2" stroke-dashoffset="94.2" transform="rotate(-90 18 18)"/>
+      </svg>
+      <span class="ring-num" id="ringNum">0/0</span>
+    </div>
+    <button class="iconbtn" id="menuBtn" aria-label="Menu" aria-haspopup="true">
+      <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+    </button>
+  </div>
+  <div class="controls" id="controls">
+    <div class="exrow">
+      <div class="selwrap exsel">
+        <select class="sort big" id="exchange" aria-label="Which exchange"></select>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="selwrap exsel" id="groupWrap">
+        <select class="sort big" id="group" aria-label="Your group"></select>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+    </div>
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2" stroke-linecap="round"/></svg>
+      <input id="search" type="search" inputmode="search" placeholder="Search name, room, character…" autocomplete="off" />
+      <button class="clearx" id="clearSearch" aria-label="Clear search">×</button>
+    </div>
+    <div class="row2">
+      <div class="selwrap">
+        <select class="sort" id="sort" aria-label="Sort by"></select>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="selwrap">
+        <select class="sort" id="floor" aria-label="Show deck"><option value="all">All decks</option></select>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+    </div>
+    <div class="chips" id="chips"></div>
+    <div class="pbar"><i id="pbarFill"></i></div>
+  </div>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<div class="menu" id="menu" role="menu">
+  <button id="mLoad" role="menuitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3M12 3v13M7 8l5-5 5 5" stroke-linecap="round" stroke-linejoin="round"/></svg>Load / add a file</button>
+  <button id="mLoadSheet" role="menuitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a4 4 0 0 0 5.7 0l2.6-2.6a4 4 0 0 0-5.7-5.7l-1 1" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 11a4 4 0 0 0-5.7 0L5.7 13.6a4 4 0 0 0 5.7 5.7l1-1" stroke-linecap="round" stroke-linejoin="round"/></svg>Load from Google Sheets link</button>
+  <button id="mRefreshSheet" role="menuitem" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 4v4h4" stroke-linecap="round" stroke-linejoin="round"/></svg>Refresh this list from Google Sheets</button>
+  <button id="mGroups" role="menuitem" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3 19a6 6 0 0 1 12 0M17 11a3 3 0 1 0-2-5.2M21 19a6 6 0 0 0-5-5.9" stroke-linecap="round" stroke-linejoin="round"/></svg>Choose my groups</button>
+  <button id="mHelp" role="menuitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.8.4-1 .9-1 1.7M12 16.5v.5" stroke-linecap="round"/></svg>How to use this</button>
+  <button id="mResetChecks" role="menuitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 4v4h4" stroke-linecap="round" stroke-linejoin="round"/></svg>Reset check-offs (this exchange)</button>
+  <hr/>
+  <button id="mRemoveEx" role="menuitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13" stroke-linecap="round" stroke-linejoin="round"/></svg>Remove this exchange</button>
+  <button id="mClear" class="danger" role="menuitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13" stroke-linecap="round" stroke-linejoin="round"/></svg>Remove everything</button>
+</div>
+
+<input type="file" id="file" hidden />
+
+<div class="wrap">
+  <div class="errbar" id="errbar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4 3 19h18L12 4z" stroke-linejoin="round"/><path d="M12 10v4M12 17v.5" stroke-linecap="round"/></svg><span id="errtext"></span></div>
+  <div class="warnbar" id="warnbar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16v.5" stroke-linecap="round"/></svg><span>This browser isn’t letting the page save between visits, so things reset if you fully close it. It still works while it stays open — keep this page open, or add it to your home screen.</span><button id="warnDismiss" aria-label="Dismiss">×</button></div>
+  <div class="hsTip" id="hsTip">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3M12 3v13M7 8l5-5 5 5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span id="tipBody"></span>
+    <button id="tipDismiss" aria-label="Dismiss tip">×</button>
+  </div>
+  <section class="empty" id="empty">
+    <svg class="bigspark" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 1c.45 5.3 2.7 7.55 8 8-5.3.45-7.55 2.7-8 8-.45-5.3-2.7-7.55-8-8 5.3-.45 7.55-2.7 8-8z"/><path d="M20 2.5c.18 2 1 2.82 3 3-2 .18-2.82 1-3 3-.18-2-1-2.82-3-3 2-.18 2.82-1 3-3z" opacity=".85"/></svg>
+    <h2>Load your exchange lists</h2>
+    <p>Pick the file(s) your group organizer shared. Each one turns into a list you can pick your group in, search, sort, and check off as you deliver.</p>
+    <div class="drop" id="drop">
+      <button class="btn" id="chooseBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3M12 3v13M7 8l5-5 5 5" stroke-linecap="round" stroke-linejoin="round"/></svg>Choose file(s)</button>
+      <div class="drophint">or drop .pdf, .xlsx, or .csv files here — you can add several</div>
+      <div class="drophint"><button class="linklike" id="openSheetLink" style="padding:0">Or load from a Google Sheets link</button></div>
+    </div>
+    <div class="types">
+      <span>✦ Pixie Dust</span><span>🎣 Fish Extender</span><span>🧲 Magnet</span><span>🎄 Ornament</span>
+    </div>
+    <div class="privacy">
+      <b>Stays on your phone.</b> Nothing is uploaded — files are read right here on your device.<br/>
+      <b>Works offline.</b> Once loaded, lists and your check-offs are saved on this device for the whole trip.
+    </div>
+    <button class="linklike" id="openHelp" style="margin-top:18px">How does this work?</button>
+  </section>
+  <main id="main" hidden></main>
+</div>
+<footer class="appfooter">
+  <span class="beta-pill">Beta</span>
+  DCL Exchange Helper — experimental, use at your own risk. Data stays on your device; no warranties expressed or implied.
+  <span class="ver">v2026.06.16.01</span>
+</footer>
+
+<div class="sheet" id="sheet">
+  <div class="sheetbg" id="sheetBg"></div>
+  <div class="panel">
+    <div class="ph">
+      <svg class="spark" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1.5c.4 4.6 2.4 6.6 7 7-4.6.4-6.6 2.4-7 7-.4-4.6-2.4-6.6-7-7 4.6-.4 6.6-2.4 7-7z"/></svg>
+      <h2>How to use this</h2>
+      <button id="helpClose" aria-label="Close">×</button>
+    </div>
+    <div class="pc">
+      <p>This is a private little helper for stateroom gift exchanges on your cruise. It turns the organizer’s list into something you can sort, search, and tick off door to door.</p>
+
+      <div class="note2 gold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3 4 7v5c0 4.5 3.2 7.5 8 9 4.8-1.5 8-4.5 8-9V7l-8-4z" stroke-linejoin="round"/><path d="m9 12 2 2 4-4" stroke-linecap="round" stroke-linejoin="round"/></svg><div><b>Your lists never leave your phone.</b> Files are read right here on your device. Nothing is uploaded to any server — not to this site or anywhere else. Even when you load a Google Sheets link, the sheet is fetched directly by your device and the link itself is only saved on your device.</div></div>
+
+      <h3>Loading your lists</h3>
+      <div class="step"><div class="n">1</div><div>Tap <b>Choose file(s)</b> (or <b>Load / add a file</b> in the ⋯ menu) and pick what your organizer shared.</div></div>
+      <div class="step"><div class="n">2</div><div>It accepts <b>.pdf</b>, <b>.xlsx</b>, and <b>.csv</b>. You can load several at once, or add more later — each file just gets added in.</div></div>
+      <div class="step"><div class="n">3</div><div>One file can hold more than one exchange (the Fish&nbsp;Extender workbook has Family, Kids, and Adult lists), and they’ll all show up.</div></div>
+
+      <h3>The exchanges</h3>
+      <div class="ex-types">
+        <div><b>Pixie Dust</b> — one big list of staterooms, with families’ favorites and occasions.</div>
+        <div><b>Fish Extender (FE)</b> — split into groups (Mickey, Minnie…). Family, Kids-only, and Adult-only versions.</div>
+        <div><b>Magnet &amp; Ornament</b> — simple lists split into groups, just last name + stateroom.</div>
+      </div>
+
+      <h3>Picking your exchange &amp; group</h3>
+      <div class="step"><div class="n">1</div><div>Use the top <b>exchange</b> dropdown to switch between the lists you loaded.</div></div>
+      <div class="step"><div class="n">2</div><div>When you load a list that’s split into groups, you’ll be asked <b>which groups you’re in</b>. The app then shows just those — no clutter from the rest. You can change this anytime with <b>Choose my groups</b> in the ⋯ menu.</div></div>
+      <div class="step"><div class="n">3</div><div>The <b>group</b> dropdown next to the exchange lets you flip between <b>All my groups</b>, any single group you picked, or <b>Everyone (all groups)</b> when you need to see the whole list.</div></div>
+      <div class="step"><div class="n">4</div><div><b>Sort</b> by group, deck, last name, room, or occasion. The <b>deck</b> dropdown narrows to one floor. <b>Search</b> matches names, rooms, and characters.</div></div>
+
+      <h3>Checking off deliveries</h3>
+      <p>Tap the circle on a card to mark a stateroom delivered — it dims and the progress ring fills. Tap again to undo. Check-offs are tracked <b>separately for each exchange</b> and saved on this device. Filter to <b>To do</b> or <b>Delivered</b> anytime.</p>
+      <p>Cards flag <b>occasions</b> (birthdays, anniversaries…) with a ribbon, and <b>allergies / dietary notes</b> in a pink callout, so nothing slips by.</p>
+
+      <h3>Keep it on your phone (works offline)</h3>
+      <p>Add it to your home screen so it opens like an app and works with no signal — perfect for at sea.</p>
+      <div class="note2 gold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4 3 19h18L12 4z" stroke-linejoin="round"/><path d="M12 10v4M12 17v.5" stroke-linecap="round"/></svg><div><b>Add to your Home Screen first, then load your lists in the installed app.</b> The Home Screen version is a separate copy — lists and check-offs you added in the browser won’t carry over to it, so it starts empty. Do the install before you load anything to avoid re-doing it.</div></div>
+      <div class="note2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M11 18h2" stroke-linecap="round"/></svg><div><b>iPhone (Safari):</b> tap the <span class="kbd">Share</span> button (the box with an up-arrow), scroll down, then tap <span class="kbd">Add to Home Screen</span>.</div></div>
+      <div class="note2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M11 18h2" stroke-linecap="round"/></svg><div><b>Android (Chrome):</b> open the <span class="kbd">⋮</span> menu and choose <span class="kbd">Add to Home screen</span> (sometimes shown as <span class="kbd">Install app</span>).</div></div>
+      <p style="color:var(--faint);font-size:13px">Do this while you still have wifi. After the first open it keeps working offline, and your lists and check-offs stay put.</p>
+
+      <h3>Managing lists</h3>
+      <p>The ⋯ menu lets you <b>add more files</b>, <b>reset check-offs</b> for the current exchange, <b>remove one exchange</b>, or <b>remove everything</b>. When a newer list comes out, just load the new file — it replaces the old one with the same name and keeps your check-offs where the families match.</p>
+
+      <h3>Loading from a Google Sheets link</h3>
+      <p>If your organizer shares a Google Sheets link instead of a file, you can load it directly:</p>
+      <div class="step"><div class="n">1</div><div>In Google Sheets, tap <b>Share</b> and set access to <b>“Anyone with the link” → Viewer</b>. Then copy the link.</div></div>
+      <div class="step"><div class="n">2</div><div>In this app, choose <b>Load from Google Sheets link</b> (on the welcome screen or the ⋯ menu), paste the link, and give it a name.</div></div>
+      <div class="step"><div class="n">3</div><div>The sheet is downloaded once and saved on your device — after that it works offline like any other loaded list.</div></div>
+      <div class="note2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 4v4h4" stroke-linecap="round" stroke-linejoin="round"/></svg><div>Loaded a list this way? Use <b>Refresh this list from Google Sheets</b> in the ⋯ menu (while online) to pull the latest updates without losing your check-offs.</div></div>
+      <div class="note2 gold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3 4 7v5c0 4.5 3.2 7.5 8 9 4.8-1.5 8-4.5 8-9V7l-8-4z" stroke-linejoin="round"/><path d="m9 12 2 2 4-4" stroke-linecap="round" stroke-linejoin="round"/></svg><div>The link only goes from your device straight to Google — it’s saved on your device only, never sent anywhere else.</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="sheetModal">
+  <div class="modalbg" id="sheetModalBg"></div>
+  <div class="modalcard">
+    <h2>Load from Google Sheets</h2>
+    <p>Paste a link to a Google Sheet that’s shared as <b>“Anyone with the link” → Viewer</b>. If a specific tab is open in your browser, that tab will be loaded.</p>
+    <label for="sheetUrl">Google Sheets link</label>
+    <input id="sheetUrl" type="url" inputmode="url" placeholder="https://docs.google.com/spreadsheets/d/…" autocomplete="off" autocapitalize="off" autocorrect="off" />
+    <label for="sheetName">Name for this list (optional)</label>
+    <input id="sheetName" type="text" placeholder="e.g. Pixie Dust" autocomplete="off" />
+    <div class="modalerr" id="sheetErr" hidden></div>
+    <div class="modalbtns">
+      <button id="sheetCancel" type="button">Cancel</button>
+      <button id="sheetLoad" class="btn" type="button">Load</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="groupModal">
+  <div class="modalbg" id="groupModalBg"></div>
+  <div class="modalcard tall">
+    <h2>Which groups are you in?</h2>
+    <p>Pick the groups you’re delivering to. You’ll see just those — and can still switch to <b>All my groups</b> or any single group. Change this anytime from the ⋯ menu.</p>
+    <div class="gpx" id="groupPicker"></div>
+    <div class="modalbtns">
+      <button id="groupEveryone" type="button">Show everyone</button>
+      <button id="groupSave" class="btn" type="button">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== Browser-compatible parsing core (also runnable in Node for tests) =====
+// Handles: xlsx (multi-sheet), csv/tsv, pdf (via pdfjs). Detects exchanges,
+// groups within an exchange, and variable column sets (rich vs simple).
+
+function dv(u8){ return new DataView(u8.buffer, u8.byteOffset, u8.byteLength); }
+async function inflateRaw(bytes){
+  const ds = new DecompressionStream('deflate-raw');
+  const stream = new Blob([bytes]).stream().pipeThrough(ds);
+  const ab = await new Response(stream).arrayBuffer();
+  return new Uint8Array(ab);
+}
+function readZipEntries(u8){
+  const view = dv(u8); let eocd=-1;
+  for(let i=u8.length-22;i>=0;i--){ if(view.getUint32(i,true)===0x06054b50){ eocd=i; break; } }
+  if(eocd<0) throw new Error('not-zip');
+  const cdCount=view.getUint16(eocd+10,true); let p=view.getUint32(eocd+16,true);
+  const map=new Map();
+  for(let n=0;n<cdCount;n++){
+    if(view.getUint32(p,true)!==0x02014b50) break;
+    const method=view.getUint16(p+10,true), compSize=view.getUint32(p+20,true);
+    const nameLen=view.getUint16(p+28,true), extraLen=view.getUint16(p+30,true), cmtLen=view.getUint16(p+32,true);
+    const localOffset=view.getUint32(p+42,true);
+    const name=new TextDecoder().decode(u8.subarray(p+46,p+46+nameLen));
+    map.set(name,{method,compSize,localOffset}); p+=46+nameLen+extraLen+cmtLen;
+  }
+  return map;
+}
+async function readZipFile(u8,entries,name){
+  const e=entries.get(name); if(!e) return null;
+  const view=dv(u8);
+  if(view.getUint32(e.localOffset,true)!==0x04034b50) throw new Error('bad-local');
+  const nameLen=view.getUint16(e.localOffset+26,true), extraLen=view.getUint16(e.localOffset+28,true);
+  const start=e.localOffset+30+nameLen+extraLen;
+  const data=u8.subarray(start,start+e.compSize);
+  if(e.method===0) return data.slice();
+  if(e.method===8) return await inflateRaw(data);
+  throw new Error('method-'+e.method);
+}
+function decodeEntities(s){
+  if(s.indexOf('&')===-1) return s;
+  return s.replace(/&#x([0-9a-fA-F]+);/g,(_,h)=>String.fromCodePoint(parseInt(h,16)))
+          .replace(/&#(\d+);/g,(_,d)=>String.fromCodePoint(parseInt(d,10)))
+          .replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&amp;/g,'&');
+}
+function parseSharedStrings(xml){
+  if(!xml) return [];
+  const out=[]; const siRe=/<si\b[^>]*>([\s\S]*?)<\/si>/g; let m;
+  while((m=siRe.exec(xml))){
+    const inner=m[1]; let text=''; const tRe=/<t\b[^>]*>([\s\S]*?)<\/t>/g; let tm;
+    while((tm=tRe.exec(inner))) text+=decodeEntities(tm[1]);
+    out.push(text);
+  }
+  return out;
+}
+function colToIndex(ref){ let i=0,col=0; while(i<ref.length){ const c=ref.charCodeAt(i); if(c>=65&&c<=90){col=col*26+(c-64);i++;} else break; } return col-1; }
+function parseSheetXml(xml,shared){
+  const rows=[]; const rowRe=/<row\b[^>]*\br="(\d+)"[^>]*>([\s\S]*?)<\/row>/g; let rm;
+  while((rm=rowRe.exec(xml))){
+    const rowIdx=parseInt(rm[1],10)-1; const cells=[];
+    const cellRe=/<c\b([^>]*)(?:\/>|>([\s\S]*?)<\/c>)/g; let cm;
+    while((cm=cellRe.exec(rm[2]))){
+      const attrs=cm[1]||'', body=cm[2]||'';
+      const refM=/\br="([A-Z]+\d+)"/.exec(attrs), tM=/\bt="([^"]+)"/.exec(attrs); const t=tM?tM[1]:null;
+      let val='';
+      if(t==='inlineStr'){ let text=''; const tRe=/<t\b[^>]*>([\s\S]*?)<\/t>/g; let tm; while((tm=tRe.exec(body))) text+=decodeEntities(tm[1]); val=text; }
+      else { const vM=/<v\b[^>]*>([\s\S]*?)<\/v>/.exec(body); const raw=vM?vM[1]:'';
+        if(t==='s'){ const i=parseInt(raw,10); val=shared[i]!==undefined?shared[i]:''; }
+        else if(t==='str'){ val=decodeEntities(raw); }
+        else if(t==='b'){ val=raw==='1'?'TRUE':'FALSE'; }
+        else val=decodeEntities(raw);
+      }
+      const ci=refM?colToIndex(refM[1]):cells.length; cells[ci]=val;
+    }
+    rows[rowIdx]=cells;
+  }
+  const out=[]; for(let i=0;i<rows.length;i++){ out.push(rows[i]||[]); }
+  return out;
+}
+// returns [{name, grid}] for every worksheet, in workbook order
+async function parseWorkbookSheets(u8){
+  const entries=readZipEntries(u8); const dec=new TextDecoder();
+  const ss=await readZipFile(u8,entries,'xl/sharedStrings.xml');
+  const shared=parseSharedStrings(ss?dec.decode(ss):'');
+  const wbX=await readZipFile(u8,entries,'xl/workbook.xml'); const wb=wbX?dec.decode(wbX):'';
+  const relsX=await readZipFile(u8,entries,'xl/_rels/workbook.xml.rels'); const rels=relsX?dec.decode(relsX):'';
+  const sheets=[];
+  const sheetRe=/<sheet\b[^>]*\/>/g; let sm;
+  while((sm=sheetRe.exec(wb))){
+    const tag=sm[0];
+    const nm=(/name="([^"]*)"/.exec(tag)||[])[1]||'';
+    const rid=(/r:id="([^"]*)"/.exec(tag)||[])[1]||'';
+    sheets.push({name:decodeEntities(nm), rid});
+  }
+  const relMap={};
+  const relRe=/<Relationship\b[^>]*\/>/g; let rm2;
+  while((rm2=relRe.exec(rels))){
+    const tag=rm2[0]; const id=(/Id="([^"]*)"/.exec(tag)||[])[1]; let tgt=(/Target="([^"]*)"/.exec(tag)||[])[1];
+    if(id&&tgt){ tgt=tgt.replace(/^\//,''); if(!tgt.startsWith('xl/')) tgt='xl/'+tgt; relMap[id]=tgt; }
+  }
+  const out=[];
+  for(const s of sheets){
+    let target=relMap[s.rid];
+    if(!target||!entries.has(target)){
+      // fallback by order
+      for(const k of entries.keys()){ if(/^xl\/worksheets\/sheet\d+\.xml$/.test(k)){ target=k; break; } }
+    }
+    const shX=target?await readZipFile(u8,entries,target):null;
+    const grid=shX?parseSheetXml(dec.decode(shX),shared):[];
+    out.push({name:s.name||target, grid});
+  }
+  return out;
+}
+
+function parseDelimited(text){
+  const first=(text.split('\n')[0]||'');
+  const delim=(first.indexOf('\t')>-1 && first.indexOf(',')===-1)?'\t':',';
+  const rows=[]; let row=[],field='',i=0,inQ=false;
+  text=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+  while(i<text.length){
+    const ch=text[i];
+    if(inQ){ if(ch==='"'){ if(text[i+1]==='"'){field+='"';i+=2;continue;} inQ=false;i++;continue;} field+=ch;i++;continue; }
+    if(ch==='"'){inQ=true;i++;continue;}
+    if(ch===delim){row.push(field);field='';i++;continue;}
+    if(ch==='\n'){row.push(field);rows.push(row);row=[];field='';i++;continue;}
+    field+=ch;i++;
+  }
+  if(field.length||row.length){row.push(field);rows.push(row);}
+  return rows;
+}
+
+// ---- column mapping (grid header row -> canonical fields) ----
+const FIELDS=['last','room','adults','kids','chars','occasion','notes','confirmed'];
+function normH(h){ return String(h||'').toLowerCase().replace(/\s+/g,' ').trim(); }
+function mapColumns(headerRow){
+  const map={};
+  headerRow.forEach((h,i)=>{
+    const n=normH(h); if(!n) return;
+    if(map.last===undefined && (/last\s*name/.test(n)||n==='name'||n==='family')) map.last=i;
+    else if(map.room===undefined && /state\s*room|stateroom|cabin|room/.test(n)) map.room=i;
+    else if(map.adults===undefined && /adult/.test(n)) map.adults=i;
+    else if(map.kids===undefined && /child|kid/.test(n)) map.kids=i;
+    else if(map.chars===undefined && /favorite|favourite|character/.test(n)) map.chars=i;
+    else if(map.occasion===undefined && /occasion|special|celebrat/.test(n)) map.occasion=i;
+    else if(map.notes===undefined && /allerg|note/.test(n)) map.notes=i;
+    else if(map.confirmed===undefined && /sail|confirm/.test(n)) map.confirmed=i;
+  });
+  return map;
+}
+function findHeaderRow(grid){
+  for(let i=0;i<Math.min(grid.length,15);i++){
+    const j=(grid[i]||[]).map(normH).join('|');
+    if(/last\s*name/.test(j) && /(state\s*room|stateroom|cabin|room)/.test(j)) return i;
+  }
+  return -1;
+}
+// grid -> array of canonical lines [last,room,adults,kids,chars,occasion,notes,confirmed]
+function gridToCanonLines(grid){
+  const hi=findHeaderRow(grid);
+  const map = hi>=0 ? mapColumns(grid[hi]) : {last:0,room:1};
+  const lines=[];
+  for(let i=0;i<grid.length;i++){
+    const row=grid[i]||[];
+    const ln=FIELDS.map(f=> map[f]!==undefined ? String(row[map[f]]==null?'':row[map[f]]).trim() : '');
+    lines.push(ln);
+  }
+  return lines;
+}
+
+// ---- group / record extraction shared by all formats ----
+function roomReal(s){ s=(s||'').trim(); return /\d{3,5}/.test(s) || /^gty/i.test(s); }
+function cleanRoom(s){ s=(s||'').trim(); const m=s.match(/^(\d+)\.0+$/); return m?m[1]:s; }
+function cleanGroup(text){
+  let t=String(text||'');
+  t=t.replace(/clos(?:e|ed)\s+group/ig,' ');
+  t=t.replace(/\b(family\s+fe|kids?\s+only\s+fe|adult\s+only\s+fe|ornament\s+exchange|magnet\s+exchange|fish\s+extender)\b/ig,' ');
+  t=t.replace(/^\s*(fe|kfe|afe)\b/i,' ');
+  t=t.replace(/\s+/g,' ').trim();
+  return t||String(text||'').trim();
+}
+function linesToExchange(lines, name){
+  let cur=null; const groups=[]; const records=[]; const cols=new Set();
+  for(const ln of lines){
+    const o={}; FIELDS.forEach((f,i)=>o[f]=(ln[i]||'').trim());
+    o.room=cleanRoom(o.room);
+    const joined=FIELDS.map(f=>o[f]).filter(Boolean).join(' ').trim();
+    if(!joined) continue;
+    const isCol = /last\s*name/i.test(joined) && /state\s*room|stateroom/i.test(joined);
+    if(isCol) continue;
+    const isGroup = /group\s*\d/i.test(joined) && !roomReal(o.room);
+    if(isGroup){ const g=cleanGroup(joined); cur=g; if(!groups.includes(g)) groups.push(g); continue; }
+    // drop label-only / title rows (no room AND no substantive data): e.g. "Pixie Dust", "Magnet Exchange"
+    if(!roomReal(o.room) && !(o.adults||o.kids||o.chars||o.occasion||o.notes)) continue;
+    if(!o.last && !o.room) continue;
+    FIELDS.forEach(f=>{ if(o[f] && f!=='confirmed') cols.add(f); });
+    records.push({last:o.last,room:o.room,adults:o.adults,kids:o.kids,chars:o.chars,occasion:o.occasion,notes:o.notes,confirmed:o.confirmed,group:cur});
+  }
+  return { name, records, groups, hasGroups: groups.length>0, cols:[...cols] };
+}
+
+// ---- naming ----
+function fileBasedName(fn){
+  let base=(fn||'').replace(/\.[a-z0-9]+$/i,'');
+  const parts=base.split(/_-_|\s-\s|--/);
+  let after=parts.length>1?parts[parts.length-1]:'';
+  after=after.replace(/_/g,' ').replace(/\bxlsx\b|\bpdf\b/ig,'').replace(/\s+/g,' ').trim();
+  if(after && !/^(table|sheet)\s*\d*$/i.test(after)) return after;
+  let lead=base.split(/_\d|_6_27|_\d{1,2}_\d{1,2}/)[0];
+  lead=lead.replace(/_/g,' ').replace(/\s+/g,' ').trim();
+  return lead||'Exchange';
+}
+function exchangeNameFor(sheetName, fileName){
+  if(sheetName && !/^(table|sheet)\s*\d*$/i.test(String(sheetName).trim())) return String(sheetName).trim();
+  return fileBasedName(fileName);
+}
+// Scan rows before the data header for title rows like
+// "Pixie Dust Exchange — June 27, 2026" or "Fish Extender Family".
+// Title cells can be split across columns by the CSV comma in dates,
+// so we re-join with ", " rather than requiring a single cell.
+function findTitleInGrid(grid){
+  const hi=findHeaderRow(grid);
+  const limit=hi>=0?hi:Math.min(grid.length,10);
+  const candidates=[];
+  for(let i=0;i<limit;i++){
+    const nonempty=(grid[i]||[]).map(c=>String(c||'').trim()).filter(Boolean);
+    if(!nonempty.length) continue;
+    const t=nonempty.join(', ').replace(/\s+/g,' ').trim();
+    if(t.length<4) continue;
+    if(/last\s*name|stateroom|cabin/i.test(t)) continue;
+    if(/^group\s*\d/i.test(t)) continue;
+    candidates.push(t);
+  }
+  return candidates.slice(0,2).join(' — ')||null;
+}
+
+// ---- PDF (pdfjs passed in) ----
+async function extractPdfCanonLines(u8, lib){
+  if(!lib) throw new Error('pdf-unavailable');
+  const OPS=lib.OPS;
+  const doc=await lib.getDocument({data:u8,isEvalSupported:false}).promise;
+  let edges=null;
+  const lines=[];
+  for(let pn=1; pn<=doc.numPages; pn++){
+    const page=await doc.getPage(pn);
+    const H=page.getViewport({scale:1}).height;
+    const tc=await page.getTextContent();
+    const items=[];
+    for(const it of tc.items){ if(it.str && it.str.trim()) items.push({x:it.transform[4], y:H-it.transform[5], s:it.str.trim()}); }
+    const bounds=await rulingBounds(page, OPS, H);
+    if(bounds.length<3) continue;
+    const bands=Array.from({length:bounds.length-1},()=>[]);
+    for(const it of items){ for(let i=0;i<bounds.length-1;i++){ if(it.y>=bounds[i]-1 && it.y<bounds[i+1]-1){ bands[i].push(it); break; } } }
+    bands.forEach(b=>b.sort((a,b)=>a.y-b.y||a.x-b.x));
+    if(!edges){
+      for(const band of bands){
+        const txt=band.map(i=>i.s).join(' ').toLowerCase();
+        if(/last/.test(txt)&&/stateroom/.test(txt)){ edges=anchorsFromBand(band); break; }
+      }
+    }
+    if(!edges) continue;
+    for(const band of bands){
+      const row=['','','','','','','',''];
+      for(const it of band){ const fi=fieldIndexFor(it.x, edges); row[fi]=(row[fi]?row[fi]+' ':'')+it.s; }
+      for(let i=0;i<row.length;i++) row[i]=row[i].replace(/\s+/g,' ').trim();
+      lines.push(row);
+    }
+  }
+  return lines;
+}
+const FIELD_IDX={last:0,room:1,adults:2,kids:3,chars:4,occasion:5,notes:6,confirmed:7};
+function fieldIndexFor(x, edges){
+  let best=edges[0], bd=Infinity;
+  for(const e of edges){ const d=Math.abs(x-e.x); if(d<bd){ bd=d; best=e; } }
+  return FIELD_IDX[best.field];
+}
+function anchorsFromBand(band){
+  const edges=[];
+  for(const it of band){
+    const s=it.s;
+    if(/^Last\b/i.test(s)) edges.push({x:it.x,field:'last'});
+    else if(/^Stateroom/i.test(s)) edges.push({x:it.x,field:'room'});
+    else if(/^Adult/i.test(s)) edges.push({x:it.x,field:'adults'});
+    else if(/^Child/i.test(s)) edges.push({x:it.x,field:'kids'});
+    else if(/^Favorite/i.test(s)) edges.push({x:it.x,field:'chars'});
+    else if(/^Special/i.test(s)) edges.push({x:it.x,field:'occasion'});
+    else if(/^Allerg/i.test(s)) edges.push({x:it.x,field:'notes'});
+    else if(/^Sailing/i.test(s)) edges.push({x:it.x,field:'confirmed'});
+  }
+  if(!edges.length) [['last',58],['room',110],['adults',165],['kids',240],['chars',369],['occasion',506],['notes',606],['confirmed',702]].forEach(([f,x])=>edges.push({x,field:f}));
+  edges.sort((a,b)=>a.x-b.x);
+  return edges;
+}
+async function rulingBounds(page, OPS, H){
+  const ol=await page.getOperatorList();
+  const ys=[]; let ctm=[1,0,0,1,0,0]; const stack=[];
+  const mm=(a,b)=>[a[0]*b[0]+a[2]*b[1],a[1]*b[0]+a[3]*b[1],a[0]*b[2]+a[2]*b[3],a[1]*b[2]+a[3]*b[3],a[0]*b[4]+a[2]*b[5]+a[4],a[1]*b[4]+a[3]*b[5]+a[5]];
+  const tp=(m,x,y)=>[m[0]*x+m[2]*y+m[4], m[1]*x+m[3]*y+m[5]];
+  for(let i=0;i<ol.fnArray.length;i++){
+    const fn=ol.fnArray[i], a=ol.argsArray[i];
+    if(fn===OPS.save) stack.push(ctm.slice());
+    else if(fn===OPS.restore) ctm=stack.pop()||[1,0,0,1,0,0];
+    else if(fn===OPS.transform) ctm=mm(ctm,a);
+    else if(fn===OPS.constructPath){
+      const ops=a[0], c=a[1]; let j=0, cx=0, cy=0;
+      for(const op of ops){
+        if(op===OPS.moveTo){ cx=c[j++]; cy=c[j++]; }
+        else if(op===OPS.lineTo){ const nx=c[j++], ny=c[j++]; if(Math.abs(cy-ny)<0.6){ const p=tp(ctm,(cx+nx)/2,(cy+ny)/2); ys.push(H-p[1]); } cx=nx; cy=ny; }
+        else if(op===OPS.rectangle){ const x=c[j++],y=c[j++],w=c[j++],h=c[j++]; if(Math.abs(h)<2){ const p=tp(ctm,x+w/2,y+h/2); ys.push(H-p[1]); } cx=x; cy=y; }
+        else if(op===OPS.curveTo) j+=6;
+        else if(op===OPS.curveTo2 || op===OPS.curveTo3) j+=4;
+      }
+    }
+  }
+  ys.sort((a,b)=>a-b);
+  const b=[]; for(const y of ys){ if(!b.length || Math.abs(y-b[b.length-1])>3) b.push(y); }
+  return b;
+}
+
+// ---- top-level: file -> [exchanges] ----
+async function buildExchangesFromFile(fileName, u8OrText, kind, lib){
+  const exchanges=[];
+  if(kind==='delimited'){
+    const grid=parseDelimited(u8OrText);
+    // Prefer a title row from the sheet itself (e.g. "Pixie Dust — June 27")
+    // over the generic filename/label fallback.
+    const name=findTitleInGrid(grid)||exchangeNameFor('', fileName);
+    const ex=linesToExchange(gridToCanonLines(grid), name);
+    if(ex.records.length) exchanges.push(ex);
+  } else if(kind==='pdf'){
+    const lines=await extractPdfCanonLines(u8OrText, lib);
+    const ex=linesToExchange(lines, exchangeNameFor('', fileName));
+    if(ex.records.length) exchanges.push(ex);
+  } else { // xlsx
+    const sheets=await parseWorkbookSheets(u8OrText);
+    for(const sh of sheets){
+      const lines=gridToCanonLines(sh.grid);
+      // For xlsx, the sheet tab name is usually already good; fall back to
+      // grid title only when the tab name is generic (Sheet1 etc.)
+      let name=exchangeNameFor(sh.name, fileName);
+      if(!name||name==='Exchange'){ name=findTitleInGrid(sh.grid)||name; }
+      const ex=linesToExchange(lines, name||'Exchange');
+      if(ex.records.length) exchanges.push(ex);
+    }
+  }
+  return exchanges;
+}
+
+</script>
+<script>
+"use strict";
+const RM = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const LS = { ex:'pixiedust.exchanges.v3', done:'pixiedust.done.v3', prefs:'pixiedust.prefs.v3' };
+const $=s=>document.querySelector(s);
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+
+/* ===== persistence ===== */
+function lsGet(k,d){ try{ const j=localStorage.getItem(k); return j?JSON.parse(j):d; }catch(e){ return d; } }
+function lsSet(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
+function storageWorks(){ try{ const k='__pd_probe__'; localStorage.setItem(k,'1'); const ok=localStorage.getItem(k)==='1'; localStorage.removeItem(k); return ok; }catch(e){ return false; } }
+let EXCHANGES = lsGet(LS.ex, []);
+let DONE = new Set(lsGet(LS.done, []));
+let PREFS = Object.assign({sort:'group',filter:'all',floor:'all',exchangeId:null,groupByEx:{},myGroupsByEx:{},tipDismissed:false}, lsGet(LS.prefs,{}));
+let RECORDS = [];
+let QUERY = '';
+function saveEx(){ lsSet(LS.ex, EXCHANGES); }
+function saveDone(){ lsSet(LS.done, [...DONE]); }
+function savePrefs(){ lsSet(LS.prefs, PREFS); }
+function slug(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'exchange'; }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ===== computed fields ===== */
+const ALLERGY_RE=/allerg|peanut|tree ?nut|\bnuts?\b|walnut|pecan|almond|cashew|shellfish|shrimp|seafood|gluten|wheat|celiac|coeliac|sesame|\beggs?\b|dairy|lactose|milk|\bsoy\b|\bpork\b|gelatin|diabet/i;
+const NONE_RE=/^(none|n\/a|na|nope|no|n\.a\.?|\-|\.)?$/i;
+function cleanish(s){ const t=(s||'').trim(); return NONE_RE.test(t)?'':t; }
+function deckOf(room){
+  const s=String(room||'').trim(); const m=s.match(/\d+/);
+  if(!m) return {key:1e9,label:'Stateroom TBD',num:null};
+  const n=m[0]; const d=n.length>3?n.slice(0,n.length-3):n;
+  return {key:parseInt(d,10), label:'Deck '+parseInt(d,10), num:parseInt(n,10)};
+}
+const OCC_DEFS=[
+  {tag:'Birthday',   group:'Birthdays',     re:/birthday|b-?day\b|\bbday\b|\bb day\b|turns?\s+\d|turning\s+\d/i},
+  {tag:'Anniversary',group:'Anniversaries', re:/anniversar|wedding/i},
+  {tag:'Graduation', group:'Graduations',   re:/\bgrad\b|graduat|h\.?s\.? grad/i},
+  {tag:'First cruise',group:'First cruises',re:/first cruise|1st cruise|first disney cruise|1st disney cruise|first dcl|first sail/i},
+  {tag:'Honeymoon',  group:'Honeymoons',    re:/honeymoon/i},
+  {tag:'New baby',   group:'New baby',      re:/new baby|newborn/i}
+];
+const GROUP_ORDER=['Birthdays','Anniversaries','Graduations','First cruises','Honeymoons','New baby','Other celebrations','No occasion listed'];
+function occInfo(occText){
+  const t=cleanish(occText); if(!t) return {has:false,tags:[],group:'No occasion listed'};
+  const tags=[]; for(const d of OCC_DEFS){ if(d.re.test(t)) tags.push(d.tag); }
+  let group='Other celebrations';
+  for(const d of OCC_DEFS){ if(tags.includes(d.tag)){ group=d.group; break; } }
+  return {has:true,tags,group};
+}
+function recId(r){ return ((r.group||'')+'|'+(r.last||'')+'|'+(r.room||'')+'|'+(r.adults||'')).toLowerCase().replace(/\s+/g,' ').trim(); }
+function prepare(recs){
+  const seen=Object.create(null);
+  return recs.map(r=>{
+    const d=deckOf(r.room); const occ=occInfo(r.occasion);
+    const noteClean=cleanish(r.notes);
+    const isAllergy=!!noteClean && ALLERGY_RE.test(noteClean);
+    const confirmed=/^(x|y|yes|true|confirmed|✓)$/i.test((r.confirmed||'').trim());
+    let base=recId(r)||'row'; let id=base,k=2; while(seen[id]){ id=base+'#'+k; k++; } seen[id]=1;
+    const blob=[r.last,r.room,r.adults,r.kids,r.chars,r.occasion,r.notes,r.group].join(' ').toLowerCase();
+    return {...r, id, deckKey:d.key, deckLabel:d.label, roomNum:d.num,
+      occHas:occ.has, occTags:occ.tags, occGroup:occ.group, note:noteClean, isAllergy, confirmed, blob};
+  });
+}
+
+/* ===== current exchange/group helpers ===== */
+function curEx(){ return EXCHANGES.find(e=>e.id===PREFS.exchangeId) || EXCHANGES[0] || null; }
+// the groups the user picked for an exchange (only those still present in the list)
+function myGroups(ex){ if(!ex) return []; const sel=PREFS.myGroupsByEx[ex.id]||[]; return sel.filter(g=>ex.groups.includes(g)); }
+function curGroup(){
+  const ex=curEx(); if(!ex||!ex.hasGroups) return 'all';
+  const mine=myGroups(ex); const stored=PREFS.groupByEx[ex.id];
+  if(stored==='all') return 'all';
+  if(stored==='mine') return mine.length?'mine':'all';
+  if(stored && ex.groups.includes(stored)) return stored;
+  return mine.length?'mine':'all';
+}
+function doneKey(id){ const ex=curEx(); return (ex?ex.id:'?')+'::'+id; }
+function isDone(r){ return DONE.has(doneKey(r.id)); }
+function passesGroup(r){
+  const ex=curEx(); if(!ex||!ex.hasGroups) return true;
+  const g=curGroup(); if(g==='all') return true;
+  if(g==='mine'){ const mine=myGroups(ex); return mine.length?mine.includes(r.group||''):true; }
+  return (r.group||'')===g;
+}
+function groupRecords(){ return RECORDS.filter(passesGroup); }
+
+/* ===== icons ===== */
+const IC={
+  check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 12.5 4.5 4.5L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  spark:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c.3 3.2 1.7 4.6 5 5-3.3.4-4.7 1.8-5 5-.3-3.2-1.7-4.6-5-5 3.3-.4 4.7-1.8 5-5z"/></svg>',
+  alert:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 4 3 19h18L12 4z" stroke-linejoin="round"/><path d="M12 10v4M12 17v.5" stroke-linecap="round"/></svg>',
+  note:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.5" stroke-linecap="round"/></svg>'
+};
+
+/* ===== card ===== */
+function cardHtml(r){
+  const done=isDone(r); const ex=curEx();
+  const gv=curGroup();
+  const badge=(ex&&ex.hasGroups&&(gv==='all'||gv==='mine')&&r.group)?`<span class="gbadge">${esc(r.group)}</span>`:'';
+  const occ=cleanish(r.occasion);
+  const ribbon=occ?`<div class="ribbon">${IC.spark}<span>${esc(occ)}</span></div>`:'';
+  const confChip=r.confirmed?`<span class="tag conf">${IC.check}Sailing confirmed</span>`:'';
+  const doneTag=`<span class="tag done-tag">${IC.check}Delivered</span>`;
+  const roomDisp=r.room?esc(r.room):'GTY';
+  const adults=r.adults?`<p class="line"><span class="lbl">Adults</span>${esc(r.adults)}</p>`:'';
+  const kids=r.kids?`<p class="line"><span class="lbl">Kids</span>${esc(r.kids)}</p>`:'';
+  let loves='';
+  if(r.chars){ const long=r.chars.length>130;
+    loves=`<div class="loves"><span class="lbl">Loves</span><div class="loves-txt ${long?'clamp':''}">${esc(r.chars)}</div>${long?'<button class="more" type="button">more</button>':''}</div>`; }
+  let note='';
+  if(r.note){ note=r.isAllergy
+    ?`<div class="callout alert">${IC.alert}<div><b>Allergy / dietary</b>${esc(r.note)}</div></div>`
+    :`<div class="callout note">${IC.note}<div>${esc(r.note)}</div></div>`; }
+  return `<article class="card ${done?'done':''}" data-id="${esc(r.id)}">${ribbon}<div class="cbody"><div class="chead"><div class="who"><h3 class="lname">${esc(r.last||'—')}</h3><div class="meta"><span class="room">${roomDisp}</span><span class="deck">${esc(r.deckLabel)}</span>${badge}${confChip}${doneTag}</div></div><button class="check" type="button" aria-pressed="${done}" aria-label="Mark ${esc(r.last||'stateroom')} delivered">${IC.check}</button></div>${adults}${kids}${loves}${note}</div></article>`;
+}
+
+/* ===== filter / sort / group ===== */
+function passesFilter(r){
+  const f=PREFS.filter;
+  if(f==='occasion') return r.occHas;
+  if(f==='allergy') return r.isAllergy;
+  if(f==='todo') return !isDone(r);
+  if(f==='done') return isDone(r);
+  return true;
+}
+function passesQuery(r){ if(!QUERY) return true; return QUERY.split(/\s+/).every(t=>r.blob.indexOf(t)>-1); }
+function passesFloor(r){ const f=PREFS.floor; if(!f||f==='all') return true; if(f==='tbd') return r.deckKey>=1e9; return String(r.deckKey)===f; }
+function deckThenRoom(a,b){ return (a.deckKey-b.deckKey)||((a.roomNum||1e9)-(b.roomNum||1e9))||(a.last||'').localeCompare(b.last||''); }
+function buildGroups(){
+  let list=RECORDS.filter(r=>passesFilter(r)&&passesQuery(r)&&passesFloor(r)&&passesGroup(r));
+  const sort=PREFS.sort;
+  if(sort==='name'){ list.sort((a,b)=>(a.last||'').localeCompare(b.last||'',undefined,{sensitivity:'base'})||((a.roomNum||1e9)-(b.roomNum||1e9))); return [{label:null,items:list}]; }
+  if(sort==='room'){ list.sort((a,b)=>((a.roomNum==null)-(b.roomNum==null))||((a.roomNum||1e9)-(b.roomNum||1e9))||(a.last||'').localeCompare(b.last||'')); return [{label:null,items:list}]; }
+  if(sort==='group'){
+    const ex=curEx(); const order=ex?ex.groups:[]; const byG={};
+    list.forEach(r=>{ const g=r.group||'Other'; (byG[g]=byG[g]||[]).push(r); });
+    const groups=[];
+    order.forEach(g=>{ if(byG[g]){ byG[g].sort(deckThenRoom); groups.push({label:g,items:byG[g]}); delete byG[g]; } });
+    Object.keys(byG).forEach(g=>{ byG[g].sort(deckThenRoom); groups.push({label:g,items:byG[g]}); });
+    return groups;
+  }
+  if(sort==='occasion'){
+    const byG={}; list.forEach(r=>{(byG[r.occGroup]=byG[r.occGroup]||[]).push(r);});
+    const groups=[];
+    GROUP_ORDER.forEach(g=>{ if(byG[g]){ if(PREFS.filter==='occasion'&&g==='No occasion listed') return;
+      byG[g].sort(deckThenRoom); groups.push({label:g,items:byG[g]}); } });
+    return groups;
+  }
+  const byD={}; list.forEach(r=>{(byD[r.deckKey]=byD[r.deckKey]||[]).push(r);});
+  return Object.keys(byD).map(Number).sort((a,b)=>a-b).map(k=>{
+    const items=byD[k]; items.sort((a,b)=>((a.roomNum||1e9)-(b.roomNum||1e9))||(a.last||'').localeCompare(b.last||''));
+    return {label:items[0].deckLabel,items};
+  });
+}
+
+/* ===== controls (rebuilt per exchange) ===== */
+function rebuildControls(){
+  const ex=curEx(); if(!ex) return;
+  $('#brandsub').textContent = ex.name;
+  const exSel=$('#exchange');
+  exSel.innerHTML=EXCHANGES.map(e=>`<option value="${esc(e.id)}">${esc(e.name)}</option>`).join('');
+  exSel.value=ex.id;
+  const gWrap=$('#groupWrap'), gSel=$('#group');
+  if(ex.hasGroups){
+    const mine=myGroups(ex);
+    let opts;
+    if(mine.length){
+      opts=`<option value="mine">All my groups</option>`
+        +mine.map(g=>`<option value="${esc(g)}">${esc(g)}</option>`).join('')
+        +`<option value="all">Everyone (all groups)</option>`;
+    }else{
+      opts=`<option value="all">All groups</option>`+ex.groups.map(g=>`<option value="${esc(g)}">${esc(g)}</option>`).join('');
+    }
+    gSel.innerHTML=opts;
+    gSel.value=curGroup(); gWrap.style.display='';
+  }else{ gWrap.style.display='none'; }
+  const allowed=['deck','name','room'];
+  if(ex.cols.includes('occasion')) allowed.push('occasion');
+  if(ex.hasGroups) allowed.unshift('group');
+  const labels={group:'By group',deck:'By deck',name:'By last name',room:'By room number',occasion:'By occasion'};
+  if(!allowed.includes(PREFS.sort)) PREFS.sort = ex.hasGroups?'group':'deck';
+  $('#sort').innerHTML=allowed.map(v=>`<option value="${v}">${labels[v]}</option>`).join('');
+  $('#sort').value=PREFS.sort;
+  const chips=[{f:'all',t:'All'}];
+  if(ex.cols.includes('occasion')) chips.push({f:'occasion',t:'Occasions',icon:'spark'});
+  if(ex.cols.includes('notes')) chips.push({f:'allergy',t:'Allergies',icon:'alert',cls:'alertchip'});
+  chips.push({f:'todo',t:'To do'},{f:'done',t:'Delivered'});
+  if(!chips.some(c=>c.f===PREFS.filter)) PREFS.filter='all';
+  $('#chips').innerHTML=chips.map(c=>`<button class="chip ${c.cls||''}" data-filter="${c.f}" aria-pressed="${PREFS.filter===c.f}">${c.icon?IC[c.icon]:''}${c.t}</button>`).join('');
+  savePrefs();
+}
+function populateFloors(){
+  const sel=$('#floor'); const recs=groupRecords(); const keys=[...new Set(recs.map(r=>r.deckKey))];
+  const nums=keys.filter(k=>k<1e9).sort((a,b)=>a-b); const hasTBD=keys.some(k=>k>=1e9);
+  let h='<option value="all">All decks</option>';
+  nums.forEach(k=>{ h+='<option value="'+k+'">Deck '+k+'</option>'; });
+  if(hasTBD) h+='<option value="tbd">Stateroom TBD</option>';
+  sel.innerHTML=h;
+  const valid=['all',...nums.map(String),...(hasTBD?['tbd']:[])];
+  if(!valid.includes(PREFS.floor)){ PREFS.floor='all'; savePrefs(); }
+  sel.value=PREFS.floor;
+}
+
+/* ===== render + progress ===== */
+function render(){
+  const main=$('#main'); const groups=buildGroups();
+  const total=groups.reduce((n,g)=>n+g.items.length,0);
+  if(total===0){
+    main.innerHTML='<div class="noresult">No staterooms match.<span>Try clearing the search, switching the group to “All”, or the filter back to “All”.</span></div>';
+  }else{
+    main.innerHTML=groups.map(g=>{
+      const head=g.label?`<h2 class="group-h">${esc(g.label)}<span class="group-n">${g.items.length}</span></h2>`:'';
+      return `<section class="group">${head}<div class="grid">${g.items.map(cardHtml).join('')}</div></section>`;
+    }).join('');
+  }
+  updateProgress();
+}
+function updateProgress(){
+  const recs=groupRecords(); const total=recs.length, done=recs.filter(isDone).length;
+  $('#ringNum').textContent=done+'/'+total;
+  const C=2*Math.PI*15;
+  $('#ringFill').style.strokeDasharray=C.toFixed(2);
+  $('#ringFill').style.strokeDashoffset=(C*(1-(total?done/total:0))).toFixed(2);
+  $('#pbarFill').style.width=(total?done/total*100:0)+'%';
+}
+
+/* ===== dust burst + check-off ===== */
+function burst(cx,cy){
+  if(RM) return; const n=11;
+  for(let i=0;i<n;i++){
+    const p=document.createElement('span'); p.className='dust';
+    const ang=(Math.PI*2*i)/n+Math.random()*0.6, dist=22+Math.random()*30;
+    p.style.left=cx+'px'; p.style.top=cy+'px';
+    p.style.setProperty('--dx',(Math.cos(ang)*dist).toFixed(1)+'px');
+    p.style.setProperty('--dy',(Math.sin(ang)*dist).toFixed(1)+'px');
+    p.style.animationDelay=(Math.random()*50).toFixed(0)+'ms';
+    document.body.appendChild(p); setTimeout(()=>p.remove(),800);
+  }
+}
+function toggleDone(id,btn){
+  const card=btn.closest('.card'); const key=doneKey(id);
+  if(DONE.has(key)){ DONE.delete(key); card.classList.remove('done'); btn.setAttribute('aria-pressed','false'); }
+  else{
+    DONE.add(key); card.classList.add('done'); btn.setAttribute('aria-pressed','true');
+    card.classList.add('flash'); setTimeout(()=>card.classList.remove('flash'),720);
+    const rc=btn.getBoundingClientRect(); burst(rc.left+rc.width/2, rc.top+rc.height/2);
+  }
+  saveDone(); updateProgress();
+  if(PREFS.filter==='todo'||PREFS.filter==='done') setTimeout(render, RM?0:380);
+}
+
+/* ===== events ===== */
+$('#main').addEventListener('click',e=>{
+  const chk=e.target.closest('.check');
+  if(chk){ toggleDone(chk.closest('.card').dataset.id, chk); return; }
+  const more=e.target.closest('.more');
+  if(more){ const t=more.previousElementSibling; const cl=t.classList.toggle('clamp'); more.textContent=cl?'more':'less'; }
+});
+$('#chips').addEventListener('click',e=>{
+  const c=e.target.closest('.chip'); if(!c) return;
+  PREFS.filter=c.dataset.filter; savePrefs();
+  [...$('#chips').children].forEach(x=>x.setAttribute('aria-pressed', x===c?'true':'false'));
+  render();
+});
+$('#exchange').addEventListener('change',e=>setExchange(e.target.value));
+$('#group').addEventListener('change',e=>{ const ex=curEx(); if(ex){ PREFS.groupByEx[ex.id]=e.target.value; savePrefs(); } populateFloors(); render(); });
+$('#sort').addEventListener('change',e=>{ PREFS.sort=e.target.value; savePrefs(); render(); });
+$('#floor').addEventListener('change',e=>{ PREFS.floor=e.target.value; savePrefs(); render(); });
+const si=$('#search');
+si.addEventListener('input',e=>{ QUERY=e.target.value.trim().toLowerCase(); $('#clearSearch').style.display=QUERY?'block':'none'; render(); });
+$('#clearSearch').addEventListener('click',()=>{ si.value=''; QUERY=''; $('#clearSearch').style.display='none'; render(); si.focus(); });
+
+function closeMenu(){ $('#menu').classList.remove('open'); $('#scrim').classList.remove('open'); }
+$('#menuBtn').addEventListener('click',()=>{
+  const open=$('#menu').classList.toggle('open'); $('#scrim').classList.toggle('open',open);
+  if(open){
+    const ex=curEx();
+    $('#mRefreshSheet').style.display=(ex&&ex.source)?'':'none';
+    $('#mGroups').style.display=pickerExchanges(null).length?'':'none';
+  }
+});
+$('#scrim').addEventListener('click',closeMenu);
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeMenu(); closeHelp(); closeSheetModal(); closeGroupPicker(); } });
+$('#mLoad').addEventListener('click',()=>{ closeMenu(); $('#file').click(); });
+$('#mHelp').addEventListener('click',()=>{ closeMenu(); openHelp(); });
+$('#mResetChecks').addEventListener('click',()=>{ closeMenu(); const ex=curEx(); if(!ex) return;
+  if(confirm('Clear every check-off for “'+ex.name+'”? The list stays; all its staterooms go back to not delivered.')){
+    DONE=new Set([...DONE].filter(k=>!k.startsWith(ex.id+'::'))); saveDone(); render(); } });
+$('#mRemoveEx').addEventListener('click',()=>{ closeMenu(); const ex=curEx(); if(!ex) return;
+  if(confirm('Remove “'+ex.name+'” from this device? You can re-load its file anytime.')){
+    EXCHANGES=EXCHANGES.filter(e=>e.id!==ex.id);
+    DONE=new Set([...DONE].filter(k=>!k.startsWith(ex.id+'::')));
+    delete PREFS.myGroupsByEx[ex.id]; delete PREFS.groupByEx[ex.id];
+    saveEx(); saveDone();
+    if(EXCHANGES.length){ PREFS.exchangeId=EXCHANGES[0].id; savePrefs(); setExchange(EXCHANGES[0].id); showList(); }
+    else { PREFS.exchangeId=null; savePrefs(); showEmpty(); } } });
+$('#mClear').addEventListener('click',()=>{ closeMenu();
+  if(confirm('Remove ALL loaded exchanges and check-offs from this device?')){
+    EXCHANGES=[]; DONE=new Set(); PREFS.exchangeId=null; PREFS.groupByEx={}; PREFS.myGroupsByEx={};
+    saveEx(); saveDone(); savePrefs(); RECORDS=[]; showEmpty(); } });
+
+/* ===== instructions sheet ===== */
+function openHelp(){ $('#sheet').classList.add('open'); }
+function closeHelp(){ $('#sheet').classList.remove('open'); }
+$('#helpClose').addEventListener('click',closeHelp);
+$('#sheetBg').addEventListener('click',closeHelp);
+$('#openHelp').addEventListener('click',openHelp);
+
+/* ===== home-screen tip ===== */
+const isStandalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone===true;
+function renderTip(){
+  const tip=$('#hsTip');
+  // Already installed? No need for the install nudge.
+  if(PREFS.tipDismissed || isStandalone){ tip.classList.add('hide'); return; }
+  tip.classList.remove('hide');
+  const how = isIOS
+    ? 'tap the <b>Share</b> button, then <b>Add to Home Screen</b>'
+    : 'open your browser menu and choose <b>Add to Home screen</b> (or <b>Install app</b>)';
+  $('#tipBody').innerHTML =
+    'Keep this handy all week: '+how+'. It opens like an app and works offline at sea. '
+    +'<b>Add it to your Home Screen first, then load your lists in the installed app</b> — lists loaded here in the browser don’t carry over to the Home Screen version.';
+}
+$('#tipDismiss').addEventListener('click',()=>{ PREFS.tipDismissed=true; savePrefs(); $('#hsTip').classList.add('hide'); });
+
+/* ===== file loading ===== */
+$('#file').setAttribute('multiple','');
+$('#chooseBtn').addEventListener('click',()=>$('#file').click());
+$('#file').addEventListener('change',e=>{ const fs=[...(e.target.files||[])]; if(fs.length) handleFiles(fs); e.target.value=''; });
+async function parseFile(file){
+  const name=(file.name||'').toLowerCase();
+  if(name.endsWith('.csv')||name.endsWith('.tsv')) return buildExchangesFromFile(file.name, await file.text(), 'delimited', null);
+  const u8=new Uint8Array(await file.arrayBuffer());
+  if(u8[0]===0x25&&u8[1]===0x50&&u8[2]===0x44&&u8[3]===0x46) return buildExchangesFromFile(file.name, u8, 'pdf', window.pdfjsLib);
+  if(u8[0]===0x50&&u8[1]===0x4b){ if(typeof DecompressionStream==='undefined') throw new Error('no-decompress'); return buildExchangesFromFile(file.name, u8, 'xlsx', null); }
+  return buildExchangesFromFile(file.name, new TextDecoder().decode(u8), 'delimited', null);
+}
+function upsertExchange(ex){
+  const id=slug(ex.name);
+  const rec={ id, name:ex.name, hasGroups:ex.hasGroups, groups:ex.groups, cols:ex.cols, records:ex.records };
+  const i=EXCHANGES.findIndex(e=>e.id===id);
+  if(ex.source) rec.source=ex.source;
+  else if(i>=0 && EXCHANGES[i].source) rec.source=EXCHANGES[i].source;
+  if(i>=0) EXCHANGES[i]=rec; else EXCHANGES.push(rec);
+  return rec;
+}
+async function handleFiles(files){
+  hideErr(); showLoading();
+  const added=[]; const errs=[];
+  for(const file of files){
+    try{
+      const exs=await parseFile(file);
+      if(!exs || !exs.length){ errs.push((file.name||'file')+': no stateroom rows found'); continue; }
+      for(const ex of exs){ const rec=upsertExchange(ex); added.push(rec.id); }
+    }catch(err){ console.error('load error',err); errs.push((file.name||'file')+': '+errMessage(err&&err.message)); }
+  }
+  saveEx();
+  if(!EXCHANGES.length){ showEmpty(); renderTip(); if(errs.length) showErr(errs.join('  •  ')); return; }
+  if(added.length){ PREFS.exchangeId=added[added.length-1]; savePrefs(); }
+  if(!curEx()){ PREFS.exchangeId=EXCHANGES[0].id; savePrefs(); }
+  setExchange(curEx().id);
+  showList();
+  if(errs.length) showErr(errs.join('  •  '));
+  maybeOnboardGroups(added);
+}
+function errMessage(m){
+  m=m||'';
+  if(m==='not-zip') return 'isn’t a readable Excel/CSV file';
+  if(m==='pdf-unavailable') return 'PDF reading needs the hosted (online) version — load it as .xlsx or .csv here, or open the hosted site';
+  if(m==='no-decompress') return 'this browser can’t open .xlsx offline — try CSV';
+  if(/^method-/.test(m)) return 'unusual .xlsx compression — re-save or export CSV';
+  return 'couldn’t read this file — try the .xlsx or .csv version';
+}
+
+/* ===== Google Sheets link import =====
+   The user pastes a link to their own Google Sheet (shared as "Anyone with
+   the link" -> Viewer). We never embed or store any links in this app's
+   code — only what the user pastes, kept in this device's local storage. */
+function parseSheetUrl(url){
+  const m=String(url||'').match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  if(!m) return null;
+  const gidM=String(url).match(/[#&?]gid=(\d+)/);
+  return { id:m[1], gid: gidM ? gidM[1] : '0' };
+}
+function sheetCsvUrl(src){ return `https://docs.google.com/spreadsheets/d/${src.id}/gviz/tq?tqx=out:csv&gid=${src.gid}`; }
+async function fetchSheetCsv(src){
+  let resp;
+  try{ resp=await fetch(sheetCsvUrl(src), {credentials:'omit', cache:'no-store'}); }
+  catch(e){ throw new Error('sheet-network'); }
+  if(!resp.ok) throw new Error(resp.status===404?'sheet-notfound':'sheet-private');
+  const text=(await resp.text()).replace(/^﻿/,'');
+  if(/^\s*<(!doctype|html)/i.test(text)) throw new Error('sheet-private');
+  return text;
+}
+async function loadFromSheetUrl(url, label){
+  const src=parseSheetUrl(url);
+  if(!src) throw new Error('sheet-badurl');
+  const text=await fetchSheetCsv(src);
+  const fileName=(label&&label.trim()?label.trim():'Google Sheet')+'.csv';
+  const exs=await buildExchangesFromFile(fileName, text, 'delimited', null);
+  if(!exs||!exs.length) throw new Error('sheet-norows');
+  for(const ex of exs) ex.source={id:src.id, gid:src.gid, label:(label||'').trim()};
+  return exs;
+}
+function sheetErrMessage(m){
+  if(m==='sheet-badurl') return 'That doesn’t look like a Google Sheets link. Open the sheet in your browser, copy the full address bar link, and paste it here.';
+  if(m==='sheet-private'||m==='sheet-notfound') return 'Couldn’t read that sheet. In Google Sheets, tap Share, set access to “Anyone with the link” → Viewer, then try again.';
+  if(m==='sheet-norows') return 'That sheet/tab loaded, but no stateroom rows were found on it. Make sure the link points at the tab with the data (it should have a “Last Name” and “Stateroom” column).';
+  if(m==='sheet-network') return 'Couldn’t reach Google — check your connection and try again.';
+  return 'Couldn’t load that sheet — make sure it’s shared as “Anyone with the link” → Viewer and you’re online, then try again.';
+}
+function openSheetModal(){
+  $('#sheetErr').hidden=true; $('#sheetUrl').value=''; $('#sheetName').value='';
+  $('#sheetModal').classList.add('open');
+  setTimeout(()=>$('#sheetUrl').focus(),50);
+}
+function closeSheetModal(){ $('#sheetModal').classList.remove('open'); }
+$('#openSheetLink').addEventListener('click',openSheetModal);
+$('#mLoadSheet').addEventListener('click',()=>{ closeMenu(); openSheetModal(); });
+$('#sheetCancel').addEventListener('click',closeSheetModal);
+$('#sheetModalBg').addEventListener('click',closeSheetModal);
+$('#sheetLoad').addEventListener('click',async()=>{
+  const url=$('#sheetUrl').value.trim(), name=$('#sheetName').value.trim();
+  const errEl=$('#sheetErr'); errEl.hidden=true;
+  if(!url){ errEl.textContent='Paste a Google Sheets link first.'; errEl.hidden=false; return; }
+  const btn=$('#sheetLoad'); btn.disabled=true; const oldLabel=btn.textContent; btn.textContent='Loading…';
+  try{
+    const exs=await loadFromSheetUrl(url, name);
+    const added=exs.map(ex=>upsertExchange(ex).id);
+    saveEx();
+    if(added.length){ PREFS.exchangeId=added[added.length-1]; savePrefs(); }
+    closeSheetModal(); hideErr();
+    setExchange(curEx().id); showList();
+    maybeOnboardGroups(added);
+  }catch(err){
+    errEl.textContent=sheetErrMessage(err&&err.message); errEl.hidden=false;
+  }finally{ btn.disabled=false; btn.textContent=oldLabel; }
+});
+$('#mRefreshSheet').addEventListener('click',async()=>{
+  closeMenu(); const ex=curEx(); if(!ex||!ex.source) return;
+  showLoading();
+  try{
+    const text=await fetchSheetCsv(ex.source);
+    const fileName=(ex.source.label||ex.name)+'.csv';
+    const exs=await buildExchangesFromFile(fileName, text, 'delimited', null);
+    if(!exs||!exs.length) throw new Error('sheet-norows');
+    for(const e2 of exs){ e2.source=ex.source; upsertExchange(e2); }
+    saveEx();
+    setExchange(curEx().id); showList();
+  }catch(err){
+    setExchange(ex.id); showList();
+    showErr(sheetErrMessage(err&&err.message));
+  }
+});
+
+/* ===== group picker (onboarding + edit anytime) ===== */
+let GROUP_PICKER_IDS=[];
+function pickerExchanges(ids){ return EXCHANGES.filter(e=>e.hasGroups && e.groups.length && (!ids||ids.includes(e.id))); }
+function buildGroupPicker(ids){
+  const list=pickerExchanges(ids); GROUP_PICKER_IDS=list.map(e=>e.id);
+  const box=$('#groupPicker');
+  if(!list.length){ box.innerHTML='<div class="gpx-empty">None of your loaded lists are split into groups, so there’s nothing to pick here.</div>'; return false; }
+  const multi=list.length>1;
+  box.innerHTML=list.map(ex=>{
+    const sel=new Set(myGroups(ex));
+    const head=multi?`<div class="gpx-h">${esc(ex.name)}</div>`:'';
+    const all=`<label class="gpx-row all"><input type="checkbox" class="gpx-master"/><span>Select all groups</span></label>`;
+    const rows=ex.groups.map(g=>`<label class="gpx-row"><input type="checkbox" value="${esc(g)}" ${sel.has(g)?'checked':''}/><span>${esc(g)}</span></label>`).join('');
+    return `<div class="gpx-ex" data-ex="${esc(ex.id)}">${head}${all}${rows}</div>`;
+  }).join('');
+  [...box.children].forEach(syncMaster);
+  return true;
+}
+function syncMaster(sec){
+  const boxes=[...sec.querySelectorAll('input:not(.gpx-master)')];
+  const master=sec.querySelector('.gpx-master'); if(!master) return;
+  const n=boxes.filter(b=>b.checked).length;
+  master.checked=boxes.length>0 && n===boxes.length;
+  master.indeterminate=n>0 && n<boxes.length;
+}
+$('#groupPicker').addEventListener('change',e=>{
+  const cb=e.target.closest('input[type=checkbox]'); if(!cb) return;
+  const sec=cb.closest('.gpx-ex'); if(!sec) return;
+  if(cb.classList.contains('gpx-master')){
+    sec.querySelectorAll('input:not(.gpx-master)').forEach(b=>b.checked=cb.checked);
+    cb.indeterminate=false;
+  }else{ syncMaster(sec); }
+});
+function openGroupPicker(ids){ if(!buildGroupPicker(ids)) return false; $('#groupModal').classList.add('open'); return true; }
+function closeGroupPicker(){ $('#groupModal').classList.remove('open'); }
+function applyPickerAndRefresh(){ savePrefs(); closeGroupPicker(); const ex=curEx(); if(ex){ setExchange(ex.id); showList(); } }
+$('#groupSave').addEventListener('click',()=>{
+  [...$('#groupPicker').children].forEach(sec=>{
+    const id=sec.dataset.ex; if(!id) return;
+    const sel=[...sec.querySelectorAll('input:not(.gpx-master)')].filter(b=>b.checked).map(b=>b.value);
+    PREFS.myGroupsByEx[id]=sel; delete PREFS.groupByEx[id];
+  });
+  applyPickerAndRefresh();
+});
+$('#groupEveryone').addEventListener('click',()=>{
+  GROUP_PICKER_IDS.forEach(id=>{ PREFS.myGroupsByEx[id]=[]; delete PREFS.groupByEx[id]; });
+  applyPickerAndRefresh();
+});
+$('#groupModalBg').addEventListener('click',closeGroupPicker);
+$('#mGroups').addEventListener('click',()=>{ closeMenu(); openGroupPicker(null); });
+// onboard newly loaded exchanges that have groups and haven't been picked yet
+function maybeOnboardGroups(addedIds){
+  const ids=(addedIds||[]).filter(id=>{ const ex=EXCHANGES.find(e=>e.id===id); return ex&&ex.hasGroups&&ex.groups.length&&!(id in PREFS.myGroupsByEx); });
+  if(ids.length) return openGroupPicker(ids);
+  return false;
+}
+
+/* ===== set exchange ===== */
+function setExchange(id){
+  PREFS.exchangeId=id; savePrefs();
+  const ex=curEx(); RECORDS = ex?prepare(ex.records):[];
+  rebuildControls(); populateFloors(); render();
+}
+
+/* ===== view state ===== */
+function showLoading(){ $('#empty').hidden=true; $('#topwrap').hidden=true; $('#sheet').classList.remove('open'); const m=$('#main'); m.hidden=false; m.innerHTML='<div class="loading"><div class="dotspin"></div>Reading your file…</div>'; }
+function showEmpty(){ $('#topwrap').hidden=true; $('#main').hidden=true; $('#empty').hidden=false; renderTip(); }
+function showList(){
+  $('#empty').hidden=true; $('#topwrap').hidden=false; $('#main').hidden=false;
+  rebuildControls();
+  $('#clearSearch').style.display=QUERY?'block':'none';
+  renderTip();
+  render();
+}
+function showErr(msg){ $('#errtext').textContent='Some files couldn’t load — '+msg; $('#errbar').style.display='flex'; }
+function hideErr(){ $('#errbar').style.display='none'; }
+
+/* ===== drag & drop on welcome ===== */
+const drop=$('#drop');
+['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over');}));
+['dragleave'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over');}));
+drop.addEventListener('drop',e=>{ e.preventDefault(); drop.classList.remove('over'); const fs=[...(e.dataTransfer&&e.dataTransfer.files||[])]; if(fs.length) handleFiles(fs); });
+window.addEventListener('dragover',e=>{ if(!$('#empty').hidden) e.preventDefault(); });
+window.addEventListener('drop',e=>{ if(!$('#empty').hidden){ e.preventDefault(); const fs=[...(e.dataTransfer&&e.dataTransfer.files||[])]; if(fs.length) handleFiles(fs); } });
+
+/* ===== init ===== */
+$('#warnDismiss').addEventListener('click',()=>$('#warnbar').classList.remove('show'));
+if('serviceWorker' in navigator && location.protocol.indexOf('http')===0){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
+(function init(){
+  if(!storageWorks()) $('#warnbar').classList.add('show');
+  if(EXCHANGES.length){
+    if(!curEx()){ PREFS.exchangeId=EXCHANGES[0].id; savePrefs(); }
+    setExchange(curEx().id); showList();
+  } else { showEmpty(); }
+})();
+
+</script>
+</body>
+</html>
