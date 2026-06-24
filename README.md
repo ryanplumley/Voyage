@@ -136,7 +136,12 @@ This is the source of truth — plain JSON, parsed deterministically and offline
 | `reservations[]` | `id`, `category`, `provider`, `title`, `date`, `time`, `location`, `confirmation`, `party[]`, `cost`, `notes` |
 | `travel[]` | `id`, `type`, `title`, `date`, `time`, `confirmation`, `details` |
 | `packing` | object keyed by person → `[{ category, items: [{ id, text, packed }] }]` |
+| `suggestions[]` | *(optional)* activity ideas you can browse per day and add to the schedule: `id`, `date`, `time`, `title`, `type`, `location`, `notes`, `cost` |
 | `notes` | freeform string |
+
+**Activity ideas.** Any `suggestions` whose `date` matches the day you're viewing on the **Schedule** tab show up behind a 💡 banner. Tap it to browse them and **Add** the ones you want — each becomes a normal, editable schedule event. Ideas stay in the list so each traveler can pick their own. Great for a port day or sea day where you're choosing among options.
+
+**Packing — copy to everyone.** Build one person's list, then use **Copy list to everyone** (bottom of their packing list) to push the common items (shorts, t-shirts, etc.) to every traveler. Existing items are kept; only missing ones are added, and each person tracks their own checkboxes.
 
 **Allowed values**
 
