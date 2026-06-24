@@ -611,6 +611,8 @@ function vevent(it){
   const d=[]; if(it.notes)d.push(it.notes); if(it.confirmation)d.push('Confirmation: '+it.confirmation);
   if(it.kind&&it.kind!=='schedule')d.push('('+it.kind+')');
   if(d.length) L.push('DESCRIPTION:'+icsEsc(d.join('\n')));
+  // default reminder 15 minutes before timed events
+  if(it.time) L.push('BEGIN:VALARM','ACTION:DISPLAY','DESCRIPTION:'+icsEsc(it.title||'Reminder'),'TRIGGER:-PT15M','END:VALARM');
   L.push('END:VEVENT');
   return L.join('\r\n');
 }
