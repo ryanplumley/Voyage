@@ -71,21 +71,21 @@ This is the source of truth — plain JSON, parsed deterministically and offline
 ```json
 {
   "trip": {
-    "name": "Disney Destiny Cruise",
-    "startDate": "2026-06-26",
-    "endDate": "2026-07-04",
+    "name": "Sample Caribbean Cruise",
+    "startDate": "2030-03-10",
+    "endDate": "2030-03-15",
     "timezone": "America/New_York",
-    "travelers": ["Ryan", "Sarah", "Maura", "Lindsay"]
+    "travelers": ["Traveler 1", "Traveler 2", "Traveler 3", "Traveler 4"]
   },
   "schedule": [
     {
       "id": "evt-001",
-      "date": "2026-06-27",
+      "date": "2030-03-10",
       "time": "13:00",
       "endTime": "15:30",
       "title": "Embarkation",
       "type": "travel",
-      "location": "Port Everglades Terminal",
+      "location": "Cruise Terminal",
       "confirmation": "",
       "notes": "Arrive by 12:30, passports + boarding pass ready",
       "done": false
@@ -97,11 +97,11 @@ This is the source of truth — plain JSON, parsed deterministically and offline
       "category": "dining",
       "provider": "Disney",
       "title": "Palo Brunch",
-      "date": "2026-06-29",
+      "date": "2030-03-12",
       "time": "11:30",
       "location": "Deck 12 Aft",
       "confirmation": "ABC123",
-      "party": ["Ryan", "Sarah"],
+      "party": ["Traveler 1", "Traveler 2"],
       "cost": "$50/pp",
       "notes": "Dress code: no shorts"
     }
@@ -110,15 +110,15 @@ This is the source of truth — plain JSON, parsed deterministically and offline
     {
       "id": "trv-001",
       "type": "flight",
-      "title": "Delta CVG → FLL",
-      "date": "2026-06-26",
+      "title": "Outbound flight",
+      "date": "2030-03-09",
       "time": "07:00",
-      "confirmation": "H4IOMT",
+      "confirmation": "XXXXXX",
       "details": "Boarding 7:00 AM"
     }
   ],
   "packing": {
-    "Ryan": [
+    "Traveler 1": [
       { "category": "Clothing", "items": [ { "id": "p1", "text": "Formal night outfit", "packed": false } ] }
     ],
     "Shared": []

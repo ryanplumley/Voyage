@@ -148,7 +148,11 @@
   .minibtn svg{width:15px;height:15px}
   .minibtn:hover{color:var(--ink);border-color:var(--line-strong)}
 
-  /* ---------- Now (home) view ---------- */
+  /* ---------- Home (Upcoming / Day at a Glance) ---------- */
+  .seg{display:flex;gap:6px;margin:8px 14px 2px;padding:4px;border:1px solid var(--line);border-radius:13px;background:rgba(20,34,76,.4)}
+  .segbtn{flex:1;padding:10px 8px;border:0;border-radius:10px;background:none;color:var(--muted);font-size:13.5px;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent}
+  .segbtn[aria-pressed="true"]{background:linear-gradient(180deg,var(--gold-bright),var(--gold));color:#231902}
+  .day-h{margin:14px 18px 9px;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--aqua)}
   .hero{margin:8px 14px 4px;padding:18px 18px 20px;border-radius:20px;border:1px solid var(--line);
     background:linear-gradient(160deg,rgba(20,34,76,.7),rgba(12,22,56,.4));position:relative;overflow:hidden}
   .hero .countdown{font-family:var(--mono);font-size:12px;color:var(--aqua);font-weight:700;letter-spacing:.5px}
@@ -312,7 +316,7 @@
   </main>
 
   <nav class="tabbar"><div class="tabs" id="tabs">
-    <button class="tab" data-tab="now" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>Now</button>
+    <button class="tab" data-tab="now" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg><span id="homeTabLabel">Upcoming</span></button>
     <button class="tab" data-tab="schedule" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Schedule</button>
     <button class="tab" data-tab="reservations" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h16v6a3 3 0 000 4v6H4v-6a3 3 0 000-4z"/><path d="M14 4v16" stroke-dasharray="2 2"/></svg>Reserve</button>
     <button class="tab" data-tab="travel" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12l9-2V4a1.5 1.5 0 013 0v6l9 2v2l-9-1.5V18l2 1.5V21l-3.5-1L9 21v-1.5L11 18v-5.5L2 14z"/></svg>Travel</button>
@@ -359,7 +363,7 @@ const RES_CATS = ['dining','excursion','spa','tour','other'];
 const TRAVEL_TYPES = ['flight','drive','hotel','transfer','other'];
 
 let TRIP = null;
-let PREFS = lsGet(LS.prefs, { tab:'now', day:null, packPerson:null, resCat:'all', resProvider:'all', hc:false });
+let PREFS = lsGet(LS.prefs, { tab:'now', homeMode:'auto', day:null, packPerson:null, resCat:'all', resProvider:'all', hc:false });
 let META = lsGet(LS.meta, { fileName:null, loadedAt:null });
 
 /* ---------- storage ---------- */
@@ -462,7 +466,7 @@ function loadTripObject(obj,fileName){
   if(errs.length) throw new Error('This file has problems:\n• '+errs.join('\n• '));
   TRIP=normalizeTrip(obj);
   META={fileName:fileName||'trip.json', loadedAt:new Date().toISOString()};
-  PREFS.day=null; PREFS.packPerson=null;
+  PREFS.day=null; PREFS.packPerson=null; PREFS.homeMode='auto';
   saveTrip(); saveMeta(); savePrefs();
 }
 function parseJsonText(text,fileName){
@@ -570,8 +574,9 @@ function render(){
   $('#tripName').textContent=TRIP.trip.name||'Voyage';
   $('#tripSub').textContent = TRIP.trip.startDate?`${shortDate(TRIP.trip.startDate)} – ${shortDate(TRIP.trip.endDate)}`:'Trip Companion';
   renderNowNext();
+  updateHomeTabLabel();
   const t=PREFS.tab;
-  if(t==='now') renderNow();
+  if(t==='now') renderHome();
   else if(t==='schedule') renderSchedule();
   else if(t==='reservations') renderReservations();
   else if(t==='travel') renderTravel();
@@ -587,26 +592,65 @@ function renderNowNext(){
     : `<div class="nn-col ${cls}"><div class="nn-k">${label}</div><div class="nn-t">${esc(it.title)}</div><div class="nn-m"><span class="nn-time">${esc(fmtTime(it.time))}</span>${it.location?' · '+esc(it.location):''}</div></div>`;
   $('#nowNext').innerHTML=`<div class="nn-card">${cell('Now',current,'now')}<div class="nn-div"></div>${cell('Up next',next,'next')}</div>`;
 }
-function renderNow(){
-  const el=$('#sec-now'); const t=TRIP.trip; const now=nowInTz();
+function tripCountdown(){
+  const t=TRIP.trip, now=nowInTz();
   const start=parseDate(t.startDate), end=parseDate(t.endDate), today=parseDate(now.date);
-  let countdown='';
-  if(start&&today){
-    const diff=Math.round((start-today)/86400000);
-    if(diff>0) countdown=`${diff} day${diff>1?'s':''} until departure`;
-    else if(end&&today>end) countdown='Trip complete · welcome home';
-    else countdown=`Day ${Math.round((today-start)/86400000)+1} of your trip`;
-  }
-  let h=`<div class="hero"><div class="countdown">${esc(countdown)}</div><h2>${esc(t.name||'Your Trip')}</h2>
+  if(!start||!today) return '';
+  const diff=Math.round((start-today)/86400000);
+  if(diff>0) return `${diff} day${diff>1?'s':''} until departure`;
+  if(end&&today>end) return 'Trip complete · welcome home';
+  return `Day ${Math.round((today-start)/86400000)+1} of your trip`;
+}
+function heroHtml(){
+  const t=TRIP.trip;
+  return `<div class="hero"><div class="countdown">${esc(tripCountdown())}</div><h2>${esc(t.name||'Your Trip')}</h2>
     <div class="dates">${esc(fmtDay(t.startDate))} – ${esc(fmtDay(t.endDate))}</div>
     <div class="trav">${(t.travelers||[]).map(p=>`<span class="who-chip">${esc(p)}</span>`).join('')}</div></div>`;
+}
+// Auto: "glance" while we're within the trip dates, otherwise "upcoming".
+function homeModeAuto(){ const now=nowInTz(), s=TRIP.trip.startDate, e=TRIP.trip.endDate; return (s&&e&&now.date>=s&&now.date<=e)?'glance':'upcoming'; }
+function resolvedHome(){ return (PREFS.homeMode&&PREFS.homeMode!=='auto')?PREFS.homeMode:homeModeAuto(); }
+function updateHomeTabLabel(){ const el=$('#homeTabLabel'); if(el) el.textContent = resolvedHome()==='glance'?'Today':'Upcoming'; }
+// Items from now forward (date-aware; tolerant of items with no time).
+function upcomingItems(limit){
+  const now=nowInTz();
+  return allItems()
+    .filter(i=>i.date && ((i.date>now.date) || (i.date===now.date && (i.date+'T'+(i.time||'23:59'))>=now.abs)))
+    .sort(sortByWhen).slice(0, limit||12);
+}
+function renderHome(){
+  const el=$('#sec-now'); const mode=resolvedHome();
+  updateHomeTabLabel();
+  const seg=`<div class="seg">
+    <button class="segbtn" data-home="upcoming" aria-pressed="${mode==='upcoming'}">Upcoming</button>
+    <button class="segbtn" data-home="glance" aria-pressed="${mode==='glance'}">Day at a Glance</button></div>`;
+  el.innerHTML = seg + (mode==='glance'?glanceHtml():upcomingHtml());
+}
+function glanceHtml(){
+  const now=nowInTz();
+  let h=heroHtml();
   const todayItems=allItems().filter(i=>i.date===now.date).sort(sortByWhen);
   h+=`<div class="nowblock"><h3>Today · ${esc(fmtDay(now.date))}</h3>`;
   h+= todayItems.length?`<div class="list">${todayItems.map(i=>cardHtml(i,false)).join('')}</div>`:`<div class="emptymini">No scheduled items today.</div>`;
   h+='</div>';
   const upRes=(TRIP.reservations||[]).filter(r=>r.date&&(r.date+'T'+(r.time||'00:00'))>=now.abs).sort(sortByWhen).slice(0,4);
   if(upRes.length) h+=`<div class="nowblock"><h3>Upcoming reservations</h3><div class="list">${upRes.map(resCardHtml).join('')}</div></div>`;
-  el.innerHTML=h;
+  return h;
+}
+function upcomingHtml(){
+  let h=heroHtml();
+  const items=upcomingItems(12);
+  const next=items[0];
+  if(next) h+=`<div class="nowblock"><h3>Next up</h3><div class="list">${cardHtml(next,false)}</div></div>`;
+  const rest=items.slice(1);
+  if(rest.length){
+    const byDay={}; rest.forEach(i=>{(byDay[i.date]=byDay[i.date]||[]).push(i);});
+    h+=`<div class="nowblock"><h3>Coming up</h3>`;
+    Object.keys(byDay).sort().forEach(day=>{ h+=`<div class="day-h">${esc(fmtDay(day))}</div><div class="list">${byDay[day].map(i=>cardHtml(i,false)).join('')}</div>`; });
+    h+='</div>';
+  }
+  if(!next) h+=`<div class="emptymini">No upcoming items. Add events, reservations, or travel — or switch to Day at a Glance.</div>`;
+  return h;
 }
 function cardHtml(it, showActions){
   const done=it.kind==='schedule'&&it.done;
@@ -788,6 +832,7 @@ $('#tabs').addEventListener('click',e=>{ const b=e.target.closest('.tab'); if(b)
 $('#goSettings').addEventListener('click',()=>setTab('settings'));
 $('#app').addEventListener('click',e=>{
   const copy=e.target.closest('[data-copy]'); if(copy){ navigator.clipboard?.writeText(copy.dataset.copy).then(()=>toast('Copied '+copy.dataset.copy),()=>toast('Copy failed')); return; }
+  const hm=e.target.closest('[data-home]'); if(hm){ PREFS.homeMode=hm.dataset.home; savePrefs(); renderHome(); return; }
   const chk=e.target.closest('[data-check]'); if(chk){ const ev=TRIP.schedule.find(x=>x.id===chk.dataset.check); if(ev){ ev.done=!ev.done; saveTrip(); render(); } return; }
   const day=e.target.closest('[data-day]'); if(day){ PREFS.day=day.dataset.day; savePrefs(); renderSchedule(); return; }
   const rc=e.target.closest('[data-rescat]'); if(rc){ PREFS.resCat=rc.dataset.rescat; savePrefs(); renderReservations(); return; }
@@ -828,7 +873,7 @@ const drop=$('#drop');
 drop.addEventListener('drop',e=>{ const f=e.dataTransfer.files&&e.dataTransfer.files[0]; if(f) handleFile(f); });
 ['dragover','drop'].forEach(ev=>$('#onboard').addEventListener(ev,e=>e.preventDefault()));
 
-setInterval(()=>{ if(TRIP){ renderNowNext(); if(PREFS.tab==='now') renderNow(); } }, 30000);
+setInterval(()=>{ if(TRIP){ renderNowNext(); updateHomeTabLabel(); if(PREFS.tab==='now') renderHome(); } }, 30000);
 
 (function boot(){
   const saved=lsGet(LS.trip,null);
