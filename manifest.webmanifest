@@ -1,6 +1,7 @@
 {
-  "name": "DCL Exchange Helper — Cruise Exchanges",
-  "short_name": "DCL Exchanges",
+  "name": "Voyage — Trip Companion",
+  "short_name": "Voyage",
+  "description": "Offline-first trip companion. Your schedule, reservations, travel, and packing — private and on-device.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
