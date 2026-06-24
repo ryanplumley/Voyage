@@ -153,6 +153,18 @@
   .segbtn{flex:1;padding:10px 8px;border:0;border-radius:10px;background:none;color:var(--muted);font-size:13.5px;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent}
   .segbtn[aria-pressed="true"]{background:linear-gradient(180deg,var(--gold-bright),var(--gold));color:#231902}
   .day-h{margin:14px 18px 9px;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--aqua)}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:12px 14px 4px}
+  .stat{border:1px solid var(--line);border-radius:14px;background:var(--card);padding:12px 11px 11px;min-width:0}
+  .stat .sv{font-family:var(--serif);font-size:22px;font-weight:600;color:var(--gold-bright);line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .stat .sl{font-size:9.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--faint);margin-top:6px;font-weight:700}
+  .stat .ss{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .jumpbtn{display:flex;align-items:center;justify-content:center;gap:9px;width:calc(100% - 28px);margin:12px 14px 4px;padding:13px;border:1px solid var(--line-strong);border-radius:13px;background:rgba(20,34,76,.55);color:var(--ink);font-weight:700;font-size:14px;cursor:pointer}
+  .jumpbtn svg{width:16px;height:16px;color:var(--gold)}
+  .mrow{display:flex;align-items:center;gap:11px;padding:11px 14px;border:1px solid var(--line);border-radius:12px;background:var(--card);margin-bottom:8px}
+  .mrow .mr-d{font-family:var(--mono);font-size:11px;color:var(--aqua);flex:none;width:46px}
+  .mrow .mr-t{font-family:var(--mono);font-size:12px;color:var(--gold-bright);flex:none;width:58px;text-align:right}
+  .mrow .mr-x{flex:1;min-width:0;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mrow .mr-b{flex:none;width:8px;height:8px;border-radius:50%;background:var(--accent,var(--t-other))}
   .hero{margin:8px 14px 4px;padding:18px 18px 20px;border-radius:20px;border:1px solid var(--line);
     background:linear-gradient(160deg,rgba(20,34,76,.7),rgba(12,22,56,.4));position:relative;overflow:hidden}
   .hero .countdown{font-family:var(--mono);font-size:12px;color:var(--aqua);font-weight:700;letter-spacing:.5px}
@@ -702,30 +714,42 @@ function renderHome(){
     <button class="segbtn" data-home="glance" aria-pressed="${mode==='glance'}">Day at a Glance</button></div>`;
   el.innerHTML = seg + (mode==='glance'?glanceHtml():upcomingHtml());
 }
+function packingOverall(){ let tot=0,done=0; Object.values(TRIP.packing||{}).forEach(cats=>(cats||[]).forEach(c=>(c.items||[]).forEach(i=>{tot++; if(i.packed)done++;}))); return {tot,done,pct:tot?Math.round(done/tot*100):0}; }
+function nextReservation(){ const now=nowInTz(); return (TRIP.reservations||[]).filter(r=>r.date&&(r.date+'T'+(r.time||'00:00'))>=now.abs).sort(sortByWhen)[0]||null; }
+function statTiles(){
+  const now=nowInTz(), start=parseDate(TRIP.trip.startDate), end=parseDate(TRIP.trip.endDate), today=parseDate(now.date);
+  let cd='—', cdl='Countdown';
+  if(start&&today){ const diff=Math.round((start-today)/86400000);
+    if(diff>0){ cd=diff; cdl=diff===1?'Day to go':'Days to go'; }
+    else if(end&&today>end){ cd='✓'; cdl='Completed'; }
+    else { cd='Day '+(Math.round((today-start)/86400000)+1); cdl='Of your trip'; } }
+  const pk=packingOverall(), nr=nextReservation();
+  return `<div class="stats">
+    <div class="stat"><div class="sv">${esc(String(cd))}</div><div class="sl">${esc(cdl)}</div></div>
+    <div class="stat"><div class="sv">${pk.pct}%</div><div class="sl">Packed</div><div class="ss">${pk.done}/${pk.tot} items</div></div>
+    <div class="stat"><div class="sv" style="font-size:14px;line-height:1.2;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${nr?esc(nr.title):'—'}</div><div class="sl">Next reservation</div><div class="ss">${nr?esc(shortDate(nr.date)+' · '+(fmtTime(nr.time)||'')):'None upcoming'}</div></div>
+  </div>`;
+}
+function jumpBtn(date){ return `<button class="jumpbtn" data-goschedule="${date||''}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Open the full schedule</button>`; }
+function miniRow(it){ return `<div class="mrow"><span class="mr-b" style="--accent:${accentFor(it.type)}"></span><span class="mr-d">${esc(shortDate(it.date))}</span><span class="mr-t">${esc(fmtTime(it.time)||'all day')}</span><span class="mr-x">${esc(it.title)}</span></div>`; }
+// Day at a Glance — anchored to TODAY: full cards for today only.
 function glanceHtml(){
   const now=nowInTz();
-  let h=heroHtml();
+  let h=heroHtml()+statTiles();
   const todayItems=allItems().filter(i=>i.date===now.date).sort(sortByWhen);
   h+=`<div class="nowblock"><h3>Today · ${esc(fmtDay(now.date))}</h3>`;
-  h+= todayItems.length?`<div class="list">${todayItems.map(i=>cardHtml(i,false)).join('')}</div>`:`<div class="emptymini">No scheduled items today.</div>`;
-  h+='</div>';
-  const upRes=(TRIP.reservations||[]).filter(r=>r.date&&(r.date+'T'+(r.time||'00:00'))>=now.abs).sort(sortByWhen).slice(0,4);
-  if(upRes.length) h+=`<div class="nowblock"><h3>Upcoming reservations</h3><div class="list">${upRes.map(resCardHtml).join('')}</div></div>`;
+  h+= todayItems.length?`<div class="list">${todayItems.map(i=>cardHtml(i,false)).join('')}</div>`:`<div class="emptymini">Nothing scheduled today. Enjoy! 🌴</div>`;
+  h+='</div>'+jumpBtn(now.date);
   return h;
 }
+// Upcoming — a light teaser (compact rows), not a second schedule.
 function upcomingHtml(){
-  let h=heroHtml();
-  const items=upcomingItems(12);
-  const next=items[0];
-  if(next) h+=`<div class="nowblock"><h3>Next up</h3><div class="list">${cardHtml(next,false)}</div></div>`;
-  const rest=items.slice(1);
-  if(rest.length){
-    const byDay={}; rest.forEach(i=>{(byDay[i.date]=byDay[i.date]||[]).push(i);});
-    h+=`<div class="nowblock"><h3>Coming up</h3>`;
-    Object.keys(byDay).sort().forEach(day=>{ h+=`<div class="day-h">${esc(fmtDay(day))}</div><div class="list">${byDay[day].map(i=>cardHtml(i,false)).join('')}</div>`; });
-    h+='</div>';
-  }
-  if(!next) h+=`<div class="emptymini">No upcoming items. Add events, reservations, or travel — or switch to Day at a Glance.</div>`;
+  let h=heroHtml()+statTiles();
+  const items=upcomingItems(6);
+  h+= items.length
+    ? `<div class="nowblock"><h3>The days ahead</h3><div style="padding:0 14px">${items.map(miniRow).join('')}</div></div>`
+    : `<div class="emptymini">No upcoming items yet — add events, reservations, or travel.</div>`;
+  h+=jumpBtn(items[0]?items[0].date:'');
   return h;
 }
 function cardHtml(it, showActions){
@@ -967,6 +991,7 @@ $('#goSettings').addEventListener('click',()=>setTab('settings'));
 $('#app').addEventListener('click',e=>{
   const copy=e.target.closest('[data-copy]'); if(copy){ navigator.clipboard?.writeText(copy.dataset.copy).then(()=>toast('Copied '+copy.dataset.copy),()=>toast('Copy failed')); return; }
   const hm=e.target.closest('[data-home]'); if(hm){ PREFS.homeMode=hm.dataset.home; savePrefs(); renderHome(); return; }
+  const gs=e.target.closest('[data-goschedule]'); if(gs){ if(gs.dataset.goschedule) PREFS.day=gs.dataset.goschedule; savePrefs(); setTab('schedule'); return; }
   const chk=e.target.closest('[data-check]'); if(chk){ const ev=TRIP.schedule.find(x=>x.id===chk.dataset.check); if(ev){ ev.done=!ev.done; saveTrip(); render(); } return; }
   const day=e.target.closest('[data-day]'); if(day){ PREFS.day=day.dataset.day; savePrefs(); renderSchedule(); return; }
   const rc=e.target.closest('[data-rescat]'); if(rc){ PREFS.resCat=rc.dataset.rescat; savePrefs(); renderReservations(); return; }
