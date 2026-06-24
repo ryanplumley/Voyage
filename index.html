@@ -585,6 +585,57 @@ function buildPrintView(){
 }
 function printReadable(){ buildPrintView(); setTimeout(()=>window.print(),60); }
 
+/* ---------- Calendar (.ics) export — fully on-device ---------- */
+function slug(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''); }
+function icsEsc(s){ return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\r?\n/g,'\\n'); }
+function icsStamp(){ const d=new Date(), p=n=>String(n).padStart(2,'0'); return d.getUTCFullYear()+p(d.getUTCMonth()+1)+p(d.getUTCDate())+'T'+p(d.getUTCHours())+p(d.getUTCMinutes())+p(d.getUTCSeconds())+'Z'; }
+function icsLocal(date,time){ return date.replace(/-/g,'')+'T'+time.replace(':','')+'00'; }
+// add minutes via plain field arithmetic (timezone-agnostic — we read back the same wall-clock fields)
+function addMins(date,time,mins){
+  const [y,m,d]=date.split('-').map(Number), [hh,mm]=time.split(':').map(Number);
+  const dt=new Date(y,m-1,d,hh,mm+mins,0), p=n=>String(n).padStart(2,'0');
+  return { date:`${dt.getFullYear()}-${p(dt.getMonth()+1)}-${p(dt.getDate())}`, time:`${p(dt.getHours())}:${p(dt.getMinutes())}` };
+}
+function vevent(it){
+  const u=(it.id||uid('evt'))+'@voyage';
+  const L=['BEGIN:VEVENT','UID:'+u,'DTSTAMP:'+icsStamp(),'SUMMARY:'+icsEsc(it.title||'(no title)')];
+  if(it.time){
+    L.push('DTSTART:'+icsLocal(it.date,it.time));
+    const end = it.endTime ? {date:it.date,time:it.endTime} : addMins(it.date,it.time,60);
+    L.push('DTEND:'+icsLocal(end.date,end.time));
+  } else {
+    L.push('DTSTART;VALUE=DATE:'+it.date.replace(/-/g,''));
+    L.push('DTEND;VALUE=DATE:'+addMins(it.date,'00:00',1440).date.replace(/-/g,''));
+  }
+  if(it.location) L.push('LOCATION:'+icsEsc(it.location));
+  const d=[]; if(it.notes)d.push(it.notes); if(it.confirmation)d.push('Confirmation: '+it.confirmation);
+  if(it.kind&&it.kind!=='schedule')d.push('('+it.kind+')');
+  if(d.length) L.push('DESCRIPTION:'+icsEsc(d.join('\n')));
+  L.push('END:VEVENT');
+  return L.join('\r\n');
+}
+function buildIcs(items){
+  return ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Voyage//Trip Companion//EN','CALSCALE:GREGORIAN','METHOD:PUBLISH',
+    ...items.map(vevent),'END:VCALENDAR'].join('\r\n');
+}
+async function shareIcs(text,fname){
+  const file=new File([text],fname,{type:'text/calendar'});
+  if(navigator.canShare&&navigator.canShare({files:[file]})){
+    try{ await navigator.share({files:[file], title:'Add to calendar'}); return; }
+    catch(e){ if(e.name==='AbortError') return; }
+  }
+  download(new Blob([text],{type:'text/calendar'}), fname);
+}
+function calendarOne(id){
+  const it=allItems().find(x=>x.id===id); if(!it||!it.date){ toast('No date set'); return; }
+  shareIcs(buildIcs([it]), (slug(it.title)||'event')+'.ics'); toast('Opening calendar…');
+}
+function calendarAll(){
+  const items=allItems().filter(i=>i.date);
+  if(!items.length){ toast('Nothing to add yet'); return; }
+  shareIcs(buildIcs(items), (slugTrip()||'trip')+'.ics'); toast('Trip calendar ready');
+}
+
 /* ============================================================ RENDER */
 function setTab(tab){
   PREFS.tab=tab; savePrefs();
@@ -682,7 +733,8 @@ function cardHtml(it, showActions){
   if(it.kind==='schedule'&&showActions!==false){
     actions=`<div class="cactions">
       <button class="check" data-check="${it.id}" aria-pressed="${done}" aria-label="Mark done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></button>
-      <button class="minibtn" data-edit="schedule:${it.id}" aria-label="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4z"/></svg></button></div>`;
+      <button class="minibtn" data-edit="schedule:${it.id}" aria-label="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4z"/></svg></button>
+      <button class="minibtn" data-cal="${it.id}" aria-label="Add to calendar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4M12 13v4M10 15h4"/></svg></button></div>`;
   }
   return `<div class="card ${done?'done':''} ${isNow?'now':''}" style="--accent:${accentFor(it.type)}"><div class="cbody">
     <div class="ctime"><b>${esc(fmtTime(it.time)||'—')}</b>${it.endTime?`<span>${esc(fmtTime(it.endTime))}</span>`:''}</div>
@@ -743,7 +795,8 @@ function resCardHtml(r){
       ${(r.party||[]).length?`<div class="party">${r.party.map(p=>`<span class="who-chip">${esc(p)}</span>`).join('')}</div>`:''}
       ${r.notes?`<div class="notes">${esc(r.notes)}</div>`:''}
     </div>
-    <div class="cactions"><button class="minibtn" data-edit="reservations:${r.id}" aria-label="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4z"/></svg></button></div>
+    <div class="cactions"><button class="minibtn" data-edit="reservations:${r.id}" aria-label="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4z"/></svg></button>
+      <button class="minibtn" data-cal="${r.id}" aria-label="Add to calendar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4M12 13v4M10 15h4"/></svg></button></div>
   </div></div>`;
 }
 function renderReservations(){
@@ -769,7 +822,8 @@ function renderTravel(){
         <div class="badges"><span class="badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px"><path d="${ic}"/></svg>${esc(v.type)}</span></div>
         ${v.confirmation?`<div class="meta-row"><span class="conf" data-copy="${esc(v.confirmation)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg>${esc(v.confirmation)}</span></div>`:''}
         ${v.details?`<div class="notes">${esc(v.details)}</div>`:''}</div>
-      <div class="cactions"><button class="minibtn" data-edit="travel:${v.id}" aria-label="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4z"/></svg></button></div>
+      <div class="cactions"><button class="minibtn" data-edit="travel:${v.id}" aria-label="Edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4z"/></svg></button>
+        <button class="minibtn" data-cal="${v.id}" aria-label="Add to calendar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4M12 13v4M10 15h4"/></svg></button></div>
     </div></div>`;
   }).join('')}</div>` : `<div class="emptymini">No travel legs yet. Add flights, drives, hotels, transfers.</div>`;
 }
@@ -825,6 +879,7 @@ function renderSettings(){
     <div class="setgroup"><h3>Your data</h3>
       <button class="setrow" data-act="export"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 16V4M7 9l5 5 5-5M5 20h14"/></svg><div class="sr-main"><div class="sr-t">Export JSON</div><div class="sr-d">Download your current trip (with edits)</div></div></button>
       <button class="setrow" data-act="share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg><div class="sr-main"><div class="sr-t">Share with family</div><div class="sr-d">Send the file via share sheet or clipboard</div></div></button>
+      <button class="setrow" data-act="calendar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4M12 13v4M10 15h4"/></svg><div class="sr-main"><div class="sr-t">Add trip to Calendar</div><div class="sr-d">Export all events as a calendar (.ics) file</div></div></button>
       <button class="setrow" data-act="print"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><path d="M6 14h12v8H6z"/></svg><div class="sr-main"><div class="sr-t">Print / Save readable PDF</div><div class="sr-d">A printout you can read — and re-import later</div></div></button>
       <button class="setrow" data-act="reimport"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 4v12M7 11l5 5 5-5M5 20h14"/></svg><div class="sr-main"><div class="sr-t">Load / replace trip file</div><div class="sr-d">Import a different .json or .pdf</div></div></button>
     </div>
@@ -916,6 +971,7 @@ $('#app').addEventListener('click',e=>{
   const rp=e.target.closest('[data-resprov]'); if(rp){ PREFS.resProvider=rp.dataset.resprov; savePrefs(); renderReservations(); return; }
   const add=e.target.closest('[data-add]'); if(add){ const k=add.dataset.add; k==='schedule'?editSchedule():k==='reservations'?editReservation():editTravel(); return; }
   const ed=e.target.closest('[data-edit]'); if(ed){ const [k,id]=ed.dataset.edit.split(':'); k==='schedule'?editSchedule(id):k==='reservations'?editReservation(id):editTravel(id); return; }
+  const cal=e.target.closest('[data-cal]'); if(cal){ calendarOne(cal.dataset.cal); return; }
   const pt=e.target.closest('[data-person]'); if(pt){ PREFS.packPerson=pt.dataset.person; savePrefs(); renderPacking(); return; }
   const pk=e.target.closest('[data-pack]'); if(pk){ const [p,ci,iid]=pk.dataset.pack.split('|'); const it=(TRIP.packing[p][ci].items||[]).find(x=>x.id===iid); if(it){ it.packed=!it.packed; saveTrip(); renderPacking(); } return; }
   const pd=e.target.closest('[data-packdel]'); if(pd){ const [p,ci,iid]=pd.dataset.packdel.split('|'); TRIP.packing[p][ci].items=TRIP.packing[p][ci].items.filter(x=>x.id!==iid); saveTrip(); renderPacking(); return; }
@@ -943,6 +999,7 @@ $('#scrim').addEventListener('click',e=>{ if(e.target===$('#scrim')) closeSheet(
 })();
 function doSettingsAct(act){
   if(act==='export') exportJson();
+  else if(act==='calendar') calendarAll();
   else if(act==='share') shareTrip();
   else if(act==='print') printReadable();
   else if(act==='reimport') $('#fileInput').click();
