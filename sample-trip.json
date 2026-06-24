@@ -1,0 +1,246 @@
+{
+  "trip": {
+    "name": "Sample Caribbean Cruise",
+    "startDate": "2030-03-10",
+    "endDate": "2030-03-15",
+    "timezone": "America/New_York",
+    "travelers": ["Alex", "Jordan", "Riley", "Sam"]
+  },
+  "schedule": [
+    {
+      "id": "evt-001",
+      "date": "2030-03-10",
+      "time": "12:30",
+      "endTime": "15:00",
+      "title": "Embarkation",
+      "type": "travel",
+      "location": "Port Canaveral Terminal A",
+      "confirmation": "",
+      "notes": "Arrive by 12:00. Passports + boarding pass ready. Carry-on meds in day bag.",
+      "done": false
+    },
+    {
+      "id": "evt-002",
+      "date": "2030-03-10",
+      "time": "16:00",
+      "endTime": "16:30",
+      "title": "Safety Drill (Muster)",
+      "type": "activity",
+      "location": "Muster Station 6",
+      "confirmation": "",
+      "notes": "Check the Navigator app for your station letter.",
+      "done": false
+    },
+    {
+      "id": "evt-003",
+      "date": "2030-03-10",
+      "time": "18:15",
+      "title": "Dinner — Worlds of Marvel",
+      "type": "dining",
+      "location": "Deck 3 Midship",
+      "confirmation": "",
+      "notes": "Early dining rotation. Cruise casual.",
+      "done": false
+    },
+    {
+      "id": "evt-004",
+      "date": "2030-03-11",
+      "time": "09:00",
+      "title": "Sea Day — Pool & Slides",
+      "type": "activity",
+      "location": "Deck 11",
+      "confirmation": "",
+      "notes": "",
+      "done": false
+    },
+    {
+      "id": "evt-005",
+      "date": "2030-03-11",
+      "time": "20:30",
+      "endTime": "21:30",
+      "title": "Broadway Show",
+      "type": "show",
+      "location": "Walt Disney Theatre, Deck 4 Fwd",
+      "confirmation": "",
+      "notes": "Arrive 20 min early for good seats.",
+      "done": false
+    },
+    {
+      "id": "evt-006",
+      "date": "2030-03-12",
+      "time": "08:00",
+      "endTime": "17:00",
+      "title": "Port Day — Cozumel",
+      "type": "port",
+      "location": "Cozumel, Mexico",
+      "confirmation": "",
+      "notes": "All aboard by 16:30. Bring sunscreen, cash, passports.",
+      "done": false
+    },
+    {
+      "id": "evt-007",
+      "date": "2030-03-14",
+      "time": "09:30",
+      "endTime": "16:00",
+      "title": "Disney Castaway Cay",
+      "type": "port",
+      "location": "Castaway Cay, Bahamas",
+      "confirmation": "",
+      "notes": "Family beach. Bring towels from stateroom.",
+      "done": false
+    },
+    {
+      "id": "evt-008",
+      "date": "2030-03-15",
+      "time": "08:00",
+      "endTime": "09:30",
+      "title": "Debarkation",
+      "type": "travel",
+      "location": "Port Canaveral Terminal A",
+      "confirmation": "",
+      "notes": "Breakfast 06:45. Keep passports handy for customs.",
+      "done": false
+    }
+  ],
+  "reservations": [
+    {
+      "id": "res-001",
+      "category": "dining",
+      "provider": "Disney",
+      "title": "Palo Brunch",
+      "date": "2030-03-11",
+      "time": "11:30",
+      "location": "Deck 12 Aft",
+      "confirmation": "ABC123",
+      "party": ["Alex", "Jordan"],
+      "cost": "$50/pp",
+      "notes": "Dress code: no shorts. Adults only."
+    },
+    {
+      "id": "res-002",
+      "category": "spa",
+      "provider": "Disney",
+      "title": "Senses Spa — Couples Massage",
+      "date": "2030-03-11",
+      "time": "14:00",
+      "location": "Deck 11 Fwd",
+      "confirmation": "SPA7788",
+      "party": ["Alex", "Jordan"],
+      "cost": "$320",
+      "notes": "Arrive 15 min early."
+    },
+    {
+      "id": "res-003",
+      "category": "excursion",
+      "provider": "independent",
+      "title": "Cozumel Reef Snorkel",
+      "date": "2030-03-12",
+      "time": "10:00",
+      "location": "Marina pickup — meet guide at pier exit",
+      "confirmation": "SNK-55021",
+      "party": ["Alex", "Jordan", "Riley", "Sam"],
+      "cost": "$89/pp",
+      "notes": "Meeting time 09:45. Bring booking voucher + cash for tips."
+    },
+    {
+      "id": "res-004",
+      "category": "tour",
+      "provider": "independent",
+      "title": "Mayan Ruins Half-Day Tour",
+      "date": "2030-03-12",
+      "time": "13:30",
+      "location": "Tour office near port plaza",
+      "confirmation": "MAYA-3310",
+      "party": ["Riley", "Sam"],
+      "cost": "$120/pp",
+      "notes": "Back to ship by 16:00 — cutting it close, watch the clock."
+    }
+  ],
+  "travel": [
+    {
+      "id": "trv-001",
+      "type": "drive",
+      "title": "Drive home → airport hotel",
+      "date": "2030-03-09",
+      "time": "15:00",
+      "confirmation": "",
+      "details": "~2 hrs. Park at hotel, shuttle to terminal next morning."
+    },
+    {
+      "id": "trv-002",
+      "type": "hotel",
+      "title": "Pre-Cruise Hotel — Airport Inn",
+      "date": "2030-03-09",
+      "time": "17:00",
+      "confirmation": "HTL-908123",
+      "details": "1 night. Free breakfast. Cruise shuttle 09:30."
+    },
+    {
+      "id": "trv-003",
+      "type": "flight",
+      "title": "Flight Home — DL 1422",
+      "date": "2030-03-15",
+      "time": "13:40",
+      "confirmation": "DLABCD",
+      "details": "MCO → home. Boarding 13:05, Gate 22. Bags checked through."
+    },
+    {
+      "id": "trv-004",
+      "type": "transfer",
+      "title": "Cruise Transfer to Airport",
+      "date": "2030-03-15",
+      "time": "10:00",
+      "confirmation": "XFER-771",
+      "details": "Disney ground transfer MCO. Meet Deck 3 lobby."
+    }
+  ],
+  "packing": {
+    "Alex": [
+      {
+        "category": "Clothing",
+        "items": [
+          { "id": "p1", "text": "Formal night outfit", "packed": false },
+          { "id": "p2", "text": "Swimsuit x2", "packed": true },
+          { "id": "p3", "text": "Light rain jacket", "packed": false }
+        ]
+      },
+      {
+        "category": "Documents",
+        "items": [
+          { "id": "p4", "text": "Passport", "packed": false },
+          { "id": "p5", "text": "Travel insurance card", "packed": false }
+        ]
+      }
+    ],
+    "Jordan": [
+      {
+        "category": "Clothing",
+        "items": [
+          { "id": "p6", "text": "Sundresses", "packed": false },
+          { "id": "p7", "text": "Sandals + sneakers", "packed": false }
+        ]
+      }
+    ],
+    "Riley": [
+      {
+        "category": "Essentials",
+        "items": [
+          { "id": "p8", "text": "Sunscreen SPF 50", "packed": false },
+          { "id": "p9", "text": "Refillable water bottle", "packed": false }
+        ]
+      }
+    ],
+    "Sam": [],
+    "Shared": [
+      {
+        "category": "Day Bag (embarkation)",
+        "items": [
+          { "id": "p10", "text": "Medications (original containers)", "packed": false },
+          { "id": "p11", "text": "Magic Bands", "packed": false },
+          { "id": "p12", "text": "Phone chargers + battery pack", "packed": false }
+        ]
+      }
+    ]
+  },
+  "notes": "Sample trip with fake data — load this to explore Voyage, then replace it with your own trip file."
+}
