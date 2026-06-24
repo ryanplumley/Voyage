@@ -242,5 +242,27 @@
       }
     ]
   },
-  "notes": "Sample trip with fake data — load this to explore Voyage, then replace it with your own trip file."
+  "suggestions": [
+    {
+      "id": "sug-001",
+      "date": "2030-03-12",
+      "time": "13:30",
+      "title": "Mayan ruins half-day tour",
+      "type": "excursion",
+      "location": "Cozumel",
+      "notes": "Idea only — tap Add on the Schedule day to put it on your plan.",
+      "cost": "~$60/pp"
+    },
+    {
+      "id": "sug-002",
+      "date": "2030-03-11",
+      "time": "20:00",
+      "title": "Adults-only deck trivia",
+      "type": "activity",
+      "location": "Cove Cafe, Deck 4",
+      "notes": "A relaxed sea-day evening option.",
+      "cost": ""
+    }
+  ],
+  "notes": "Sample trip with fake data — load this to explore Voyage, then replace it with your own trip file. Tip: on a Schedule day with ideas, tap the 💡 banner to browse and add activities."
 }

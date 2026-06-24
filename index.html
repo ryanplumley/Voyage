@@ -185,6 +185,23 @@
   .ghostbtn{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;padding:9px 14px;border-radius:11px;border:1px dashed var(--line-strong);background:none;color:var(--muted);cursor:pointer;margin:4px 0}
   .ghostbtn svg{width:14px;height:14px}
 
+  /* ---------- Activity ideas (browse & add) ---------- */
+  .ideabar{display:flex;align-items:center;gap:12px;width:calc(100% - 28px);margin:12px 14px 4px;padding:13px 15px;border:1px solid var(--note-line);border-radius:14px;background:var(--note-bg);color:var(--ink);cursor:pointer;text-align:left}
+  .ideabar .ib-ic{font-size:20px;flex:none;line-height:1}
+  .ideabar .ib-tx{flex:1;min-width:0;display:flex;flex-direction:column}
+  .ideabar .ib-tx b{font-size:14px}
+  .ideabar .ib-tx span{font-size:12px;color:var(--muted)}
+  .ideabar .ib-go{font-size:24px;color:var(--aqua);flex:none;line-height:1}
+  .sugcard{position:relative;display:flex;gap:12px;align-items:flex-start;border:1px solid var(--line);border-radius:14px;background:var(--card);padding:13px 14px;margin-bottom:9px;overflow:hidden}
+  .sugcard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--accent,var(--t-other))}
+  .sugmain{flex:1;min-width:0}
+  .sugtitle{font-family:var(--serif);font-weight:600;font-size:16px;line-height:1.2}
+  .sugmeta{font-size:12px;color:var(--aqua);margin-top:3px;text-transform:capitalize}
+  .sugnotes{font-size:13px;color:#cfd4ee;margin-top:6px;line-height:1.4}
+  .addsug{flex:none;align-self:center;padding:9px 15px;border-radius:11px;border:0;cursor:pointer;font-size:13px;font-weight:700;background:linear-gradient(180deg,var(--gold-bright),var(--gold));color:#231902}
+  .addsug.added{background:rgba(116,216,203,.14);border:1px solid var(--note-line);color:var(--aqua)}
+  .sugfoot{font-size:12px;color:var(--faint);text-align:center;margin-top:10px;line-height:1.5}
+
   /* ---------- Empty state / onboarding ---------- */
   .empty{max-width:520px;margin:7vh auto 0;text-align:center;padding:22px}
   .empty .bigspark{width:60px;height:60px;color:var(--gold);margin:0 auto 16px;filter:drop-shadow(0 0 18px rgba(244,205,107,.45))}
@@ -277,7 +294,7 @@
   <div class="topwrap">
     <div class="topbar">
       <div class="brand">
-        <svg class="spark" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2l1.6 6.4L20 10l-6.4 1.6L12 18l-1.6-6.4L4 10l6.4-1.6L12 2z" fill="currentColor"/></svg>
+        <svg class="spark" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="10.2" stroke="currentColor" stroke-width="1.2" opacity=".45"/><path d="M12 2.4l2.3 7.3 7.3 2.3-7.3 2.3L12 21.6l-2.3-7.3L2.4 12l7.3-2.3z" fill="currentColor"/><circle cx="12" cy="12" r="1.7" fill="#0C1740"/></svg>
         <div style="min-width:0">
           <h1 id="tripName">Voyage</h1>
           <p id="tripSub">Trip Companion</p>
@@ -331,7 +348,7 @@
 <!-- ============ ONBOARDING (empty state) ============ -->
 <div id="onboard" class="wrap" style="display:none">
   <div class="empty">
-    <svg class="bigspark" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2l1.6 6.4L20 10l-6.4 1.6L12 18l-1.6-6.4L4 10l6.4-1.6L12 2z" fill="currentColor"/></svg>
+    <svg class="bigspark" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="10.4" stroke="currentColor" stroke-width="1" opacity=".4"/><circle cx="12" cy="12" r="8.8" stroke="currentColor" stroke-width=".5" opacity=".3"/><path d="M12 2.2l2.4 7.4 7.4 2.4-7.4 2.4L12 21.8l-2.4-7.4L2.2 12l7.4-2.4z" fill="currentColor"/><circle cx="12" cy="12" r="1.8" fill="#0C1740"/></svg>
     <h2>Voyage</h2>
     <p>Your offline trip companion. Load a trip file to see your schedule, reservations, travel, and packing — all on this device.</p>
     <div class="drop" id="drop">
@@ -457,6 +474,8 @@ function normalizeTrip(o){
   t.reservations=Array.isArray(t.reservations)?t.reservations:[];
   t.travel=Array.isArray(t.travel)?t.travel:[];
   t.packing=(t.packing&&typeof t.packing==='object'&&!Array.isArray(t.packing))?t.packing:{};
+  t.suggestions=Array.isArray(t.suggestions)?t.suggestions:[];
+  t.suggestions.forEach(s=>{ if(!s.id)s.id=uid('sug'); });
   t.notes=typeof t.notes==='string'?t.notes:'';
   t.schedule.forEach(e=>{ if(!e.id)e.id=uid('evt'); if(!e.type)e.type='other'; if(typeof e.done!=='boolean')e.done=false; });
   t.reservations.forEach(r=>{ if(!r.id)r.id=uid('res'); if(!Array.isArray(r.party))r.party=r.party?[r.party]:[]; if(!r.category)r.category='other'; if(!r.provider)r.provider='independent'; });
@@ -683,8 +702,34 @@ function renderSchedule(){
     : `<div class="emptymini" style="padding:6px 14px">No dates yet</div>`;
   $('#schDayLabel').textContent=PREFS.day?fmtDay(PREFS.day):'Schedule';
   const items=allItems().filter(i=>i.date===PREFS.day).sort(sortByWhen);
-  $('#schedList').innerHTML = items.length?`<div class="list">${items.map(i=>cardHtml(i)).join('')}</div>`
+  let html = items.length?`<div class="list">${items.map(i=>cardHtml(i)).join('')}</div>`
     : `<div class="emptymini">Nothing planned for this day yet.<br>Tap <b>+ Event</b> to add something.</div>`;
+  const sugs=suggestionsFor(PREFS.day);
+  if(sugs.length) html += `<button class="ideabar" data-ideas="${PREFS.day}"><span class="ib-ic">💡</span><span class="ib-tx"><b>${sugs.length} idea${sugs.length>1?'s':''} for this day</b><span>Browse activities &amp; add them to your schedule</span></span><span class="ib-go">›</span></button>`;
+  $('#schedList').innerHTML = html;
+}
+function suggestionsFor(date){ return (TRIP.suggestions||[]).filter(s=>s.date===date).sort((a,b)=>tmin(a.time)-tmin(b.time)); }
+function sugAdded(s){ return (TRIP.schedule||[]).some(e=>e.date===s.date && e.title===s.title); }
+function openSuggestions(date){
+  const sugs=suggestionsFor(date);
+  let h=`<h3>Ideas · ${esc(fmtDay(date))}</h3>`;
+  h+= sugs.length?`<div>`+sugs.map(s=>{
+    const added=sugAdded(s);
+    const meta=[s.time?fmtTime(s.time):'', s.type||'activity', s.location||''].filter(Boolean).map(esc).join(' · ');
+    return `<div class="sugcard" style="--accent:${accentFor(s.type||'activity')}"><div class="sugmain">
+      <div class="sugtitle">${esc(s.title)}</div>
+      ${meta?`<div class="sugmeta">${meta}</div>`:''}
+      ${s.notes?`<div class="sugnotes">${esc(s.notes)}</div>`:''}
+      ${s.cost?`<div class="cost" style="margin-top:6px">${esc(s.cost)}</div>`:''}
+    </div>${added?`<button class="addsug added" disabled>✓ Added</button>`:`<button class="addsug" data-addsug="${s.id}">Add</button>`}</div>`;
+  }).join('')+`</div>` : `<div class="emptymini">No ideas saved for this day.</div>`;
+  h+=`<div class="sugfoot">Adding puts it on your Schedule — edit the time or details afterward. Ideas stay here so everyone can pick their own.</div>`;
+  openSheet(h);
+}
+function addSuggestion(id){
+  const s=(TRIP.suggestions||[]).find(x=>x.id===id); if(!s) return;
+  TRIP.schedule.push({ id:uid('evt'), title:s.title, date:s.date, time:s.time||'', endTime:s.endTime||'', type:s.type||'activity', location:s.location||'', confirmation:'', notes:s.notes||'', done:false });
+  saveTrip(); renderSchedule(); openSuggestions(s.date); toast('Added to schedule');
 }
 function resAccent(cat){ return cat==='dining'?'var(--t-dining)':cat==='excursion'?'var(--t-excursion)':cat==='spa'?'var(--t-show)':cat==='tour'?'var(--t-activity)':'var(--t-reservation)'; }
 function resCardHtml(r){
@@ -747,8 +792,31 @@ function renderPacking(){
       <button class="minibtn" data-packdel="${esc(person)}|${ci}|${it.id}" aria-label="Remove"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button></div>`; });
     h+=`<button class="ghostbtn" data-packadd="${esc(person)}|${ci}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>Add item</button></div>`;
   });
-  h+=`<div class="pcat"><button class="ghostbtn" data-catadd="${esc(person)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>Add category</button></div>`;
+  h+=`<div class="pcat" style="display:flex;flex-wrap:wrap;gap:8px">
+    <button class="ghostbtn" data-catadd="${esc(person)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>Add category</button>`;
+  if((TRIP.trip.travelers||[]).filter(p=>p!==person).length)
+    h+=`<button class="ghostbtn" data-copyall="${esc(person)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15V5a2 2 0 012-2h10"/></svg>Copy list to everyone</button>`;
+  h+=`</div>`;
   $('#packList').innerHTML=h;
+}
+function copyPackingToAll(srcPerson){
+  const src=TRIP.packing[srcPerson]||[];
+  if(!src.length){ toast('Nothing to copy yet'); return; }
+  const targets=(TRIP.trip.travelers||[]).filter(p=>p!==srcPerson);
+  if(!targets.length) return;
+  if(!confirm(`Copy ${srcPerson}'s packing list to every other traveler? Their existing items are kept — only missing ones are added.`)) return;
+  targets.forEach(tp=>{
+    if(!TRIP.packing[tp]) TRIP.packing[tp]=[];
+    src.forEach(cat=>{
+      let tcat=TRIP.packing[tp].find(c=>(c.category||'').toLowerCase()===(cat.category||'').toLowerCase());
+      if(!tcat){ tcat={ category:cat.category, items:[] }; TRIP.packing[tp].push(tcat); }
+      (cat.items||[]).forEach(it=>{
+        if(!tcat.items.some(x=>(x.text||'').toLowerCase()===(it.text||'').toLowerCase()))
+          tcat.items.push({ id:uid('p'), text:it.text, packed:false });
+      });
+    });
+  });
+  saveTrip(); renderPacking(); toast(`Copied to ${targets.length} traveler${targets.length!==1?'s':''}`);
 }
 function renderSettings(){
   const loaded=META.loadedAt?new Date(META.loadedAt).toLocaleString():'—';
@@ -853,11 +921,14 @@ $('#app').addEventListener('click',e=>{
   const pd=e.target.closest('[data-packdel]'); if(pd){ const [p,ci,iid]=pd.dataset.packdel.split('|'); TRIP.packing[p][ci].items=TRIP.packing[p][ci].items.filter(x=>x.id!==iid); saveTrip(); renderPacking(); return; }
   const pa=e.target.closest('[data-packadd]'); if(pa){ const [p,ci]=pa.dataset.packadd.split('|'); const txt=prompt('Add item'); if(txt&&txt.trim()){ TRIP.packing[p][ci].items.push({id:uid('p'),text:txt.trim(),packed:false}); saveTrip(); renderPacking(); } return; }
   const ca=e.target.closest('[data-catadd]'); if(ca){ const p=ca.dataset.catadd; const name=prompt('New category name'); if(name&&name.trim()){ TRIP.packing[p].push({category:name.trim(),items:[]}); saveTrip(); renderPacking(); } return; }
+  const cp=e.target.closest('[data-copyall]'); if(cp){ copyPackingToAll(cp.dataset.copyall); return; }
+  const id=e.target.closest('[data-ideas]'); if(id){ openSuggestions(id.dataset.ideas); return; }
   const act=e.target.closest('[data-act]'); if(act){ doSettingsAct(act.dataset.act); return; }
   const tog=e.target.closest('#hcToggle'); if(tog){ PREFS.hc=!PREFS.hc; savePrefs(); document.body.classList.toggle('hc',PREFS.hc); tog.setAttribute('aria-pressed',PREFS.hc); return; }
 });
 $('#sheet').addEventListener('click',e=>{
   if(e.target.closest('[data-close]')){ closeSheet(); return; }
+  const as=e.target.closest('[data-addsug]'); if(as){ addSuggestion(as.dataset.addsug); return; }
   const sv=e.target.closest('[data-save]'); if(sv){ const [k,id]=sv.dataset.save.split(':'); saveRecord(k,id||null); return; }
   const dl=e.target.closest('[data-del]'); if(dl){ const [k,id]=dl.dataset.del.split(':'); if(confirm('Delete this item?')) delRecord(k,id); return; }
   const pt=e.target.closest('.partytog'); if(pt){ pt.setAttribute('aria-pressed', pt.getAttribute('aria-pressed')!=='true'); return; }
