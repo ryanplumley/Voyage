@@ -294,6 +294,15 @@
     #printview .pe b{font-size:11pt}
     #printview .pmeta{font-size:9.5pt;color:#555}
     #printview .ptime{font-family:monospace;font-weight:bold}
+    #printview .pcover h1{font-size:26pt}
+    #printview .povw{margin:14pt 0 0}
+    #printview .povw-row{display:flex;justify-content:space-between;gap:12pt;border-bottom:.5pt solid #ddd;padding:4pt 0;font-size:10.5pt}
+    #printview .povw-row b{color:#7a5a14;white-space:nowrap}
+    #printview .povw-row span{color:#333;text-align:right}
+    #printview .pnote{font-size:8.5pt;color:#666;margin-top:14pt;line-height:1.45;border-top:.5pt solid #ddd;padding-top:8pt}
+    #printview .pday{page-break-before:always}
+    #printview .pday h2{font-size:17pt;border-bottom:2pt solid #C99B3A;padding-bottom:3pt;margin:0 0 9pt;color:#7a5a14}
+    #printview .pday .pe{page-break-inside:avoid;margin:0 0 8pt;padding-left:9pt;border-left:2.5pt solid #C99B3A}
     #printview .pjson{font-family:monospace;font-size:5pt;color:#eee;white-space:pre-wrap;word-break:break-all}
     @page{margin:12mm}
   }
@@ -553,46 +562,47 @@ async function shareTrip(){
   try{ await navigator.clipboard.writeText(data); toast('Trip JSON copied to clipboard'); }
   catch(e){ exportJson(); }
 }
+function pentry(i){
+  let h=`<div class="pe"><span class="ptime">${esc(fmtTime(i.time)||'all day')}</span> <b>${esc(i.title||'')}</b>`;
+  const m=[]; if(i.location)m.push(i.location); if(i.confirmation)m.push('Conf '+i.confirmation); if(i.kind!=='schedule')m.push(i.kind);
+  if(m.length) h+=`<div class="pmeta">${esc(m.join(' · '))}</div>`;
+  if(i.notes) h+=`<div class="pmeta">${esc(i.notes)}</div>`;
+  return h+'</div>';
+}
 function buildPrintView(){
   if(!TRIP) return;
-  const t=TRIP.trip; let h='';
-  h+=`<h1>${esc(t.name||'Trip')}</h1>`;
+  const t=TRIP.trip; const days=tripDays(); let h='';
+  // ----- Cover page: trip + a one-line overview of every day -----
+  h+=`<div class="pcover"><h1>${esc(t.name||'Trip')}</h1>`;
   h+=`<div class="psub">${esc(fmtDay(t.startDate))} – ${esc(fmtDay(t.endDate))}${(t.travelers||[]).length?' · '+esc(t.travelers.join(', ')):''}</div>`;
-  h+='<h2>Schedule</h2>';
-  const byDay={}; allItems().filter(i=>i.date).forEach(i=>{(byDay[i.date]=byDay[i.date]||[]).push(i);});
-  Object.keys(byDay).sort().forEach(day=>{
-    h+=`<h3>${esc(fmtDay(day))}</h3>`;
-    byDay[day].sort(sortByWhen).forEach(i=>{
-      h+=`<div class="pe"><span class="ptime">${esc(fmtTime(i.time)||'')}</span> <b>${esc(i.title||'')}</b>`;
-      const m=[]; if(i.location)m.push(i.location); if(i.confirmation)m.push('Conf '+i.confirmation); if(i.kind!=='schedule')m.push(i.kind);
-      if(m.length) h+=`<div class="pmeta">${esc(m.join(' · '))}</div>`;
-      if(i.notes) h+=`<div class="pmeta">${esc(i.notes)}</div>`; h+='</div>';
-    });
+  h+=`<div class="povw">`;
+  days.forEach((d,idx)=>{
+    const items=allItems().filter(i=>i.date===d).sort(sortByWhen);
+    const head=items.find(i=>i.type==='port')||items.find(i=>i.type==='travel')||items[0];
+    h+=`<div class="povw-row"><b>Day ${idx+1} · ${esc(fmtDay(d))}</b><span>${head?esc(head.title):'—'}</span></div>`;
   });
-  if((TRIP.reservations||[]).length){ h+='<h2>Reservations</h2>';
-    TRIP.reservations.slice().sort(sortByWhen).forEach(r=>{
-      h+=`<div class="pe"><b>${esc(r.title||'')}</b> <span class="pmeta">${esc(fmtDay(r.date))} ${esc(fmtTime(r.time))}</span>`;
-      const m=[]; if(r.location)m.push(r.location); if(r.confirmation)m.push('Conf '+r.confirmation); if(r.cost)m.push(r.cost); if((r.party||[]).length)m.push(r.party.join(', '));
-      if(m.length) h+=`<div class="pmeta">${esc(m.join(' · '))}</div>`; if(r.notes) h+=`<div class="pmeta">${esc(r.notes)}</div>`; h+='</div>';
-    });
-  }
-  if((TRIP.travel||[]).length){ h+='<h2>Travel</h2>';
-    TRIP.travel.slice().sort(sortByWhen).forEach(v=>{
-      h+=`<div class="pe"><b>${esc(v.title||'')}</b> <span class="pmeta">${esc(fmtDay(v.date))} ${esc(fmtTime(v.time))}</span>`;
-      const m=[]; if(v.confirmation)m.push('Conf '+v.confirmation); if(v.details)m.push(v.details);
-      if(m.length) h+=`<div class="pmeta">${esc(m.join(' · '))}</div>`; h+='</div>';
-    });
-  }
-  h+='<h2>Packing</h2>';
+  h+=`</div>`;
+  if(t.notes) h+=`<div class="pnote">${esc(t.notes)}</div>`;
+  h+=`</div>`;
+  // ----- One page per day (port days included) -----
+  days.forEach((d,idx)=>{
+    const items=allItems().filter(i=>i.date===d).sort(sortByWhen);
+    h+=`<div class="pday"><h2>Day ${idx+1} · ${esc(fmtDay(d))}</h2>`;
+    h+= items.length ? items.map(pentry).join('') : `<div class="pmeta">No plans this day — open day.</div>`;
+    h+='</div>';
+  });
+  // ----- Packing page -----
+  h+=`<div class="pday"><h2>Packing</h2>`;
   Object.keys(TRIP.packing||{}).forEach(person=>{
     const cats=TRIP.packing[person]||[]; if(!cats.length) return;
     h+=`<h3>${esc(person)}</h3>`;
     cats.forEach(c=>{ const items=(c.items||[]).map(i=>(i.packed?'☑ ':'☐ ')+i.text).join(' · '); h+=`<div class="pe"><b>${esc(c.category)}</b><div class="pmeta">${esc(items)}</div></div>`; });
   });
-  if(TRIP.notes) h+=`<h2>Notes</h2><div class="pe pmeta">${esc(TRIP.notes)}</div>`;
-  h+=`<h2>Trip Data</h2><div class="pmeta">This printout can be loaded back into Voyage (import this PDF). The block below is your trip, base64-encoded.</div>`;
+  h+='</div>';
+  // ----- Trip data (re-importable) -----
+  h+=`<div class="pday"><h2>Trip Data</h2><div class="pmeta">This printout can be loaded back into Voyage (import this PDF). The block below is your trip, base64-encoded.</div>`;
   let b64=''; try{ b64=btoa(unescape(encodeURIComponent(JSON.stringify(TRIP)))); }catch(e){ b64=''; }
-  h+=`<div class="pjson">===VOYAGE-DATA-START===\n${b64}\n===VOYAGE-DATA-END===</div>`;
+  h+=`<div class="pjson">===VOYAGE-DATA-START===\n${b64}\n===VOYAGE-DATA-END===</div></div>`;
   $('#printview').innerHTML=h;
 }
 function printReadable(){ buildPrintView(); setTimeout(()=>window.print(),60); }
