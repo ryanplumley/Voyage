@@ -302,7 +302,10 @@
     #printview .pnote{font-size:8.5pt;color:#666;margin-top:14pt;line-height:1.45;border-top:.5pt solid #ddd;padding-top:8pt}
     #printview .pday{page-break-before:always}
     #printview .pday h2{font-size:17pt;border-bottom:2pt solid #C99B3A;padding-bottom:3pt;margin:0 0 9pt;color:#7a5a14}
+    #printview .pday h3{font-size:9.5pt;text-transform:uppercase;letter-spacing:.5pt;color:#7a5a14;margin:12pt 0 5pt;border-bottom:.5pt solid #eee;padding-bottom:2pt}
     #printview .pday .pe{page-break-inside:avoid;margin:0 0 8pt;padding-left:9pt;border-left:2.5pt solid #C99B3A}
+    #printview .pday .pidea{border-left:2pt dashed #3FA89B}
+    #printview .pday .pidea b{font-weight:600}
     #printview .pjson{font-family:monospace;font-size:5pt;color:#eee;white-space:pre-wrap;word-break:break-all}
     @page{margin:12mm}
   }
@@ -569,6 +572,13 @@ function pentry(i){
   if(i.notes) h+=`<div class="pmeta">${esc(i.notes)}</div>`;
   return h+'</div>';
 }
+function pidea(s){
+  let h=`<div class="pe pidea"><b>☐ ${esc(s.title||'')}</b>`;
+  const m=[]; if(s.time)m.push(fmtTime(s.time)); if(s.type)m.push(s.type); if(s.location)m.push(s.location); if(s.cost)m.push(s.cost);
+  if(m.length) h+=`<div class="pmeta">${esc(m.join(' · '))}</div>`;
+  if(s.notes) h+=`<div class="pmeta">${esc(s.notes)}</div>`;
+  return h+'</div>';
+}
 function buildPrintView(){
   if(!TRIP) return;
   const t=TRIP.trip; const days=tripDays(); let h='';
@@ -584,11 +594,14 @@ function buildPrintView(){
   h+=`</div>`;
   if(t.notes) h+=`<div class="pnote">${esc(t.notes)}</div>`;
   h+=`</div>`;
-  // ----- One page per day (port days included) -----
+  // ----- One page per day: the plan + the ideas for that day -----
   days.forEach((d,idx)=>{
     const items=allItems().filter(i=>i.date===d).sort(sortByWhen);
+    const ideas=suggestionsFor(d);
     h+=`<div class="pday"><h2>Day ${idx+1} · ${esc(fmtDay(d))}</h2>`;
-    h+= items.length ? items.map(pentry).join('') : `<div class="pmeta">No plans this day — open day.</div>`;
+    h+=`<h3>Plan</h3>`;
+    h+= items.length ? items.map(pentry).join('') : `<div class="pmeta">No fixed plans yet — see ideas below.</div>`;
+    if(ideas.length) h+=`<h3>Ideas to consider</h3>`+ideas.map(pidea).join('');
     h+='</div>';
   });
   // ----- Packing page -----
