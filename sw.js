@@ -1,6 +1,6 @@
 /* Voyage service worker — precache the app shell so it runs fully offline.
    Bump CACHE to force clients to pick up new app code. */
-const CACHE = 'voyage-v8';
+const CACHE = 'voyage-v9';
 const ASSETS = [
   './', './index.html', './manifest.webmanifest',
   './icon-192.png', './icon-512.png', './apple-touch-icon.png',
