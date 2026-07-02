@@ -1,6 +1,6 @@
 # Voyage — Offline-First Trip Companion
 
-A standalone Progressive Web App (PWA) for keeping your whole trip in one place — **schedule, reservations, travel, and packing** — that works **completely offline** (built for a Disney cruise with no usable internet at sea).
+A standalone Progressive Web App (PWA) for keeping your whole trip in one place — **schedule, reservations, travel, and packing** — that works **completely offline**. Originally built for a Disney cruise (no usable internet at sea), it works for **any short trip**: a long weekend, a road trip, a theme-park visit. Event types and reservation providers adapt to whatever your trip file contains.
 
 The app ships with **zero personal data**. On first run it asks you to load a **trip file** that lives on *your* device. Everything is parsed and stored on-device in your browser. Nothing is ever uploaded — no accounts, no servers, no analytics, no CDNs.
 
@@ -58,7 +58,14 @@ README.md               This file
 
 The app uses **relative paths** and a relative service-worker scope, so it works correctly from that `/<repo-name>/` subpath with no changes.
 
-> After you change app code, bump the cache version in `sw.js` (`const CACHE = 'voyage-v2'` …) so installed copies pick up the update.
+> After you change app code, bump the cache version in `sw.js` (`const CACHE = 'voyage-v8'` …) so installed copies pick up the update.
+
+### Versioning
+
+Voyage uses **date-based versions** (`YYYY.MM.DD`), in two places:
+
+- **App version** — `APP_VERSION` in `index.html` is the date the app code last changed. Shown at the bottom of Settings. Update it (and bump the `sw.js` cache name) whenever you change app code.
+- **Trip data version** — every export (JSON, share, or printable PDF) stamps a `meta` block into the file: `version` (`YYYY.MM.DD` of the save), `savedAt` (exact timestamp), and `app` (which app version wrote it). Settings also shows **when the last JSON was added** to this device. When family members trade files, the `meta.version` tells you which copy is newest.
 
 ---
 
@@ -70,6 +77,11 @@ This is the source of truth — plain JSON, parsed deterministically and offline
 
 ```json
 {
+  "meta": {
+    "version": "2026.07.02",
+    "savedAt": "2026-07-02T12:00:00.000Z",
+    "app": "2026.07.02"
+  },
   "trip": {
     "name": "Sample Caribbean Cruise",
     "startDate": "2030-03-10",
@@ -101,6 +113,7 @@ This is the source of truth — plain JSON, parsed deterministically and offline
       "time": "11:30",
       "location": "Deck 12 Aft",
       "confirmation": "ABC123",
+      "url": "https://example.com/bookings/ABC123",
       "party": ["Traveler 1", "Traveler 2"],
       "cost": "$50/pp",
       "notes": "Dress code: no shorts"
@@ -114,6 +127,7 @@ This is the source of truth — plain JSON, parsed deterministically and offline
       "date": "2030-03-09",
       "time": "07:00",
       "confirmation": "XXXXXX",
+      "flightNumber": "DL 1234",
       "details": "Boarding 7:00 AM"
     }
   ],
@@ -131,12 +145,13 @@ This is the source of truth — plain JSON, parsed deterministically and offline
 
 | Section | Fields |
 |---|---|
+| `meta` | *(written automatically on export)* `version` (`YYYY.MM.DD` — the date this file was last saved), `savedAt` (full ISO timestamp), `app` (Voyage version that wrote it). Optional on hand-written files; lets you tell at a glance which of two shared files is newer. |
 | `trip` | `name`, `startDate` (`YYYY-MM-DD`), `endDate`, `timezone` (IANA, e.g. `America/New_York`), `travelers` (array) |
-| `schedule[]` | `id`, `date`, `time` (`HH:MM`), `endTime`, `title`, `type`, `location`, `confirmation`, `notes`, `done` |
-| `reservations[]` | `id`, `category`, `provider`, `title`, `date`, `time`, `location`, `confirmation`, `party[]`, `cost`, `notes` |
-| `travel[]` | `id`, `type`, `title`, `date`, `time`, `confirmation`, `details` |
+| `schedule[]` | `id`, `date`, `time` (`HH:MM`), `endTime`, `title`, `type`, `location`, `confirmation`, `url`, `notes`, `done` |
+| `reservations[]` | `id`, `category`, `provider`, `title`, `date`, `time`, `location`, `confirmation`, `url`, `party[]`, `cost`, `notes` |
+| `travel[]` | `id`, `type`, `title`, `date`, `time`, `confirmation`, `flightNumber`, `url`, `details` |
 | `packing` | object keyed by person → `[{ category, items: [{ id, text, packed }] }]` |
-| `suggestions[]` | *(optional)* activity ideas you can browse per day and add to the schedule: `id`, `date`, `time`, `title`, `type`, `location`, `notes`, `cost` |
+| `suggestions[]` | *(optional)* activity ideas you can browse per day and add to the schedule: `id`, `date`, `time`, `title`, `type`, `location`, `url`, `notes`, `cost` |
 | `notes` | freeform string |
 
 **Activity ideas.** Any `suggestions` whose `date` matches the day you're viewing on the **Schedule** tab show up behind a 💡 banner. Tap it to browse them and **Add** the ones you want — each becomes a normal, editable schedule event. Ideas stay in the list so each traveler can pick their own. Great for a port day or sea day where you're choosing among options.
@@ -145,11 +160,17 @@ This is the source of truth — plain JSON, parsed deterministically and offline
 
 **Packing — copy to everyone.** Build one person's list, then use **Copy list to everyone** (bottom of their packing list) to push the common items (shorts, t-shirts, etc.) to every traveler. Existing items are kept; only missing ones are added, and each person tracks their own checkboxes.
 
+**Booking links.** Every schedule event, reservation, travel leg, and suggestion accepts an optional `url` — a booking confirmation page, check-in link, restaurant menu, tour operator page, etc. Links show as a tappable pill on the card (and are printed in the readable PDF and embedded in `.ics` exports). Only `http(s)` URLs render as links; anything else stays plain text.
+
+**Flight status.** Give a `travel` leg of type `flight` a `flightNumber` (e.g. `"DL 1422"`) and the Travel tab shows one-tap **FlightAware** and **status search** links for live tracking. Opening them needs a signal at that moment, of course — everything else stays offline.
+
+**Build a trip file with AI.** The onboarding screen and **Settings → Build a trip file with AI** show a copyable prompt containing the full file format. Paste it into Claude/ChatGPT along with your confirmation emails and notes, and the AI outputs a ready-to-import `trip.json` (or a readable PDF with the embedded data block).
+
 **Allowed values**
 
-- schedule `type`: `travel · dining · show · excursion · port · activity · reservation · other` (color-coded)
+- schedule `type`: `travel · dining · show · excursion · port · activity · reservation · other` (color-coded). Custom types are allowed too — they render in the neutral color and automatically join the type dropdown, so the app fits non-cruise trips.
 - reservation `category`: `dining · excursion · spa · tour · other`
-- reservation `provider`: `Disney · independent`
+- reservation `provider`: any label (e.g. `Disney`, `Viator`, an airline or restaurant). The provider filter chips build themselves from whatever providers your file uses.
 - travel `type`: `flight · drive · hotel · transfer · other`
 
 **Rules**
