@@ -58,7 +58,14 @@ README.md               This file
 
 The app uses **relative paths** and a relative service-worker scope, so it works correctly from that `/<repo-name>/` subpath with no changes.
 
-> After you change app code, bump the cache version in `sw.js` (`const CACHE = 'voyage-v2'` …) so installed copies pick up the update.
+> After you change app code, bump the cache version in `sw.js` (`const CACHE = 'voyage-v8'` …) so installed copies pick up the update.
+
+### Versioning
+
+Voyage uses **date-based versions** (`YYYY.MM.DD`), in two places:
+
+- **App version** — `APP_VERSION` in `index.html` is the date the app code last changed. Shown at the bottom of Settings. Update it (and bump the `sw.js` cache name) whenever you change app code.
+- **Trip data version** — every export (JSON, share, or printable PDF) stamps a `meta` block into the file: `version` (`YYYY.MM.DD` of the save), `savedAt` (exact timestamp), and `app` (which app version wrote it). Settings also shows **when the last JSON was added** to this device. When family members trade files, the `meta.version` tells you which copy is newest.
 
 ---
 
@@ -70,6 +77,11 @@ This is the source of truth — plain JSON, parsed deterministically and offline
 
 ```json
 {
+  "meta": {
+    "version": "2026.07.02",
+    "savedAt": "2026-07-02T12:00:00.000Z",
+    "app": "2026.07.02"
+  },
   "trip": {
     "name": "Sample Caribbean Cruise",
     "startDate": "2030-03-10",
@@ -131,6 +143,7 @@ This is the source of truth — plain JSON, parsed deterministically and offline
 
 | Section | Fields |
 |---|---|
+| `meta` | *(written automatically on export)* `version` (`YYYY.MM.DD` — the date this file was last saved), `savedAt` (full ISO timestamp), `app` (Voyage version that wrote it). Optional on hand-written files; lets you tell at a glance which of two shared files is newer. |
 | `trip` | `name`, `startDate` (`YYYY-MM-DD`), `endDate`, `timezone` (IANA, e.g. `America/New_York`), `travelers` (array) |
 | `schedule[]` | `id`, `date`, `time` (`HH:MM`), `endTime`, `title`, `type`, `location`, `confirmation`, `notes`, `done` |
 | `reservations[]` | `id`, `category`, `provider`, `title`, `date`, `time`, `location`, `confirmation`, `party[]`, `cost`, `notes` |

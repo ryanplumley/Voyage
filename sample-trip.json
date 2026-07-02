@@ -1,4 +1,9 @@
 {
+  "meta": {
+    "version": "2026.07.02",
+    "savedAt": "2026-07-02T12:00:00.000Z",
+    "app": "2026.07.02"
+  },
   "trip": {
     "name": "Sample Caribbean Cruise",
     "startDate": "2030-03-10",

@@ -401,7 +401,9 @@
 const $ = (s,r=document)=>r.querySelector(s);
 const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
 const LS = { trip:'voyage.trip.v1', prefs:'voyage.prefs.v1', meta:'voyage.meta.v1' };
-const APP_VERSION = '1.0.0';
+/* Versioning: CalVer YYYY.MM.DD — the date this app code was last changed.
+   Trip files carry their own meta.version (date the JSON was last saved). */
+const APP_VERSION = '2026.07.02';
 
 const TYPE_LIST = ['travel','dining','show','excursion','port','activity','reservation','other'];
 const RES_CATS = ['dining','excursion','spa','tour','other'];
@@ -418,6 +420,9 @@ function saveTrip(){ if(TRIP) lsSet(LS.trip, TRIP); }
 function savePrefs(){ lsSet(LS.prefs, PREFS); }
 function saveMeta(){ lsSet(LS.meta, META); }
 function uid(p){ return p+'-'+Math.random().toString(36).slice(2,9); }
+function verDate(){ const d=new Date(), p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}.${p(d.getMonth()+1)}.${p(d.getDate())}`; }
+/* Stamp the trip file with its data version (date saved) before any export. */
+function stampMeta(){ if(!TRIP) return; TRIP.meta=Object.assign({},TRIP.meta,{version:verDate(), savedAt:new Date().toISOString(), app:APP_VERSION}); saveTrip(); }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 /* ---------- date / time ---------- */
@@ -501,6 +506,7 @@ function normalizeTrip(o){
   t.suggestions=Array.isArray(t.suggestions)?t.suggestions:[];
   t.suggestions.forEach(s=>{ if(!s.id)s.id=uid('sug'); });
   t.notes=typeof t.notes==='string'?t.notes:'';
+  t.meta=(t.meta&&typeof t.meta==='object'&&!Array.isArray(t.meta))?t.meta:{};
   t.schedule.forEach(e=>{ if(!e.id)e.id=uid('evt'); if(!e.type)e.type='other'; if(typeof e.done!=='boolean')e.done=false; });
   t.reservations.forEach(r=>{ if(!r.id)r.id=uid('res'); if(!Array.isArray(r.party))r.party=r.party?[r.party]:[]; if(!r.category)r.category='other'; if(!r.provider)r.provider='independent'; });
   t.travel.forEach(v=>{ if(!v.id)v.id=uid('trv'); if(!v.type)v.type='other'; });
@@ -553,9 +559,10 @@ function hideErr(){ $('#errbar').classList.remove('show'); }
 /* ============================================================ EXPORT */
 function slugTrip(){ return ((TRIP&&TRIP.trip.name)||'voyage-trip').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'voyage-trip'; }
 function download(blob,fname){ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=fname; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000); }
-function exportJson(){ if(!TRIP) return; download(new Blob([JSON.stringify(TRIP,null,2)],{type:'application/json'}), slugTrip()+'.json'); toast('Trip exported'); }
+function exportJson(){ if(!TRIP) return; stampMeta(); download(new Blob([JSON.stringify(TRIP,null,2)],{type:'application/json'}), slugTrip()+'.json'); toast('Trip exported'); }
 async function shareTrip(){
   if(!TRIP) return;
+  stampMeta();
   const data=JSON.stringify(TRIP,null,2);
   const file=new File([data], slugTrip()+'.json', {type:'application/json'});
   if(navigator.canShare&&navigator.canShare({files:[file]})){
@@ -581,10 +588,12 @@ function pidea(s){
 }
 function buildPrintView(){
   if(!TRIP) return;
+  stampMeta();
   const t=TRIP.trip; const days=tripDays(); let h='';
   // ----- Cover page: trip + a one-line overview of every day -----
   h+=`<div class="pcover"><h1>${esc(t.name||'Trip')}</h1>`;
   h+=`<div class="psub">${esc(fmtDay(t.startDate))} – ${esc(fmtDay(t.endDate))}${(t.travelers||[]).length?' · '+esc(t.travelers.join(', ')):''}</div>`;
+  h+=`<div class="psub">Trip data v${esc((TRIP.meta&&TRIP.meta.version)||verDate())} · printed with Voyage v${esc(APP_VERSION)}</div>`;
   h+=`<div class="povw">`;
   days.forEach((d,idx)=>{
     const items=allItems().filter(i=>i.date===d).sort(sortByWhen);
@@ -938,7 +947,7 @@ function renderSettings(){
     <div class="setgroup"><h3>Danger zone</h3>
       <button class="setrow danger" data-act="wipe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg><div class="sr-main"><div class="sr-t">Wipe all data</div><div class="sr-d">Erase this trip and return to the start screen</div></div></button>
     </div>
-    <div class="setmeta">Voyage v${APP_VERSION} · ${allItems().length} items<br>Last loaded: ${esc(META.fileName||'—')} · ${esc(loaded)}</div>`;
+    <div class="setmeta">Voyage v${APP_VERSION} · ${allItems().length} items<br>Trip data v${esc((TRIP&&TRIP.meta&&TRIP.meta.version)||'—')}${(TRIP&&TRIP.meta&&TRIP.meta.savedAt)?' · saved '+esc(new Date(TRIP.meta.savedAt).toLocaleString()):''}<br>Last JSON added: ${esc(META.fileName||'—')} · ${esc(loaded)}</div>`;
 }
 
 /* ============================================================ EDIT SHEETS */
